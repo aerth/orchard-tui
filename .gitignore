@@ -1,1 +1,5 @@
 bin
+*.log
+tmp
+*.key
+.env
