@@ -12,4 +12,3 @@ gen: build
 	bin/orchard-tui -h |& tail -n +2 >flags.txt
 install:
 	install bin/orchard-tui ~/bin/
-	orchard-tui --version
