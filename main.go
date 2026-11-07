@@ -174,7 +174,7 @@ type model struct {
 func (m model) View() tea.View {
 	m.viewport.FillHeight = false
 	viewportView := m.viewport.View()
-	slog.Info("viewport", "size", len(viewportView))
+	//slog.Info("viewport", "size", len(viewportView))
 	v := tea.NewView(viewportView + "\n" + m.textarea.View())
 	c := m.textarea.Cursor()
 	if c != nil {
@@ -307,12 +307,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
 		m.viewport.GotoBottom()
 		return m, nil
-	case Frag: // incoming assistant stream
+	case Frag: // incoming assistant stream, fast
 		if msg.M.IsBlank() {
 			slog.Error("got empty frag", "m", msg.M)
 			return m, nil
-		} else if !msg.Done {
-			slog.Info("got frag ", "atID", msg.ID, "finished", msg.Done, "size", len(m.convo), "content", msg.M.Content, "toolcalls", len(msg.M.ToolCalls))
+			//		} else if !msg.Done {
+			//			slog.Info("got frag ", "atID", msg.ID, "finished", msg.Done, "size", len(m.convo), "content", msg.M.Content, "toolcalls", len(msg.M.ToolCalls))
 		}
 		//l := len(m.convo)
 		at := m.convo.IndexOf(msg.ID)
