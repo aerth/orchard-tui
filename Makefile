@@ -4,5 +4,5 @@ build:
 clean:
 	rm -rf bin
 run: build
-	bin/orchard-tui 2>./orchard.log
+	echo bin/orchard-tui -db history.db 2>./orchard.log
 
