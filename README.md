@@ -1,6 +1,6 @@
 # Orchard-TUI (BETA)
 
-This is a basic example of a terminal interface for [Orchard AI Agent](https://github.com/aerth/orchard).
+This is a **very basic** example of a terminal interface for [Orchard AI Agent](https://github.com/aerth/orchard).
 
 ## **Warnings**
 
@@ -10,6 +10,29 @@ Watch output and logs carefully!!
 - Runs shell commands.
 - Is dangerous.
 - Executes code provided by LLM.
+
+## Installation
+
+Install easily with Go.
+
+Since we use sqlite, you must have a C compiler.
+
+Go get:
+
+```bash
+export GOBIN=~/bin/
+go install -v -trimpath -ldflags '-w -s' github.com/aerth/orchard-tui@latest
+ls -l ${GOBIN}/orchard-tui
+```
+
+Or, clone and use `make`:
+
+```
+git clone https://github.com/aerth/orchard-tui
+cd orchard-tui
+make
+./bin/orchard-tui
+```
 
 ## Usage
 
@@ -31,5 +54,4 @@ orchard-tui -db /tmp/orchard.sqlite 2>/tmp/orchard.log
 
 ## Logs
 
-Run with `-v` for more logs.
-See `/tmp/orchard.json.log`
+See `/tmp/orchard.json.log` and run with `-v` for more logs.
