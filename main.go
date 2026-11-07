@@ -66,7 +66,9 @@ func main() {
 	mllm.DefaultOptions.Debug = 0
 	mllm.Flags()
 	var dbfile string
+	var addbash bool
 	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence)")
+	flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
 	flag.BoolFunc("version", "show version info", func(s string) error {
 		fmt.Println(version)
 		fmt.Println(gitcommit)
@@ -74,10 +76,23 @@ func main() {
 		return nil
 	})
 	flag.Parse()
+	tools := orchard.AllTools
+	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
+		box, err := toolboxes.NewToolboxFS(dir)
+		if err != nil {
+			return
+		}
+		if addbash {
+			tools = append(orchard.AllTools, box.AllTools()...)
+		} else {
+			tools = box.AllTools()
+		}
+	}
 	if dbfile != "" {
+		println("opening db...")
 		opendb(dbfile)
 	}
-	if err := main2(); err != nil {
+	if err := main2(tools); err != nil {
 		if !errors.Is(err, ErrConfig) {
 			slog.Error("fatal", "err", err)
 		} else {
@@ -87,12 +102,20 @@ func main() {
 	}
 }
 
+func getnames(tools mllm.Tools) []string {
+	names := make([]string, len(tools))
+	for i := range tools {
+		names[i] = tools[i].GetName()
+	}
+	return names
+}
+
 var (
 	ErrConfig  = errors.New("bad config")
 	cancelchan = make(chan os.Signal, 10)
 )
 
-func main2() error {
+func main2(tools mllm.Tools) error {
 	if global.gdb != nil {
 		defer closedb()
 	}
@@ -101,23 +124,21 @@ func main2() error {
 		Think:        false,
 		ThreadReader: nil,
 		DB:           global.gdbx,
-		Toolbox:      orchard.AllTools,
-	}
-	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
-		box, err := toolboxes.NewToolboxFS(dir)
-		if err != nil {
-			return err
-		}
-		ocfg.Toolbox = box.AllTools()
+		Toolbox:      tools,
 	}
 	fmt.Println(welcomemodel{}.View().Content)
 	if global.gdbx == nil {
 		fmt.Println("Persistence is disabled (use -db flag for sqlite)")
 	}
+	fmt.Println()
 	if err := startupcheck(os.Stdout); err != nil {
 		fmt.Println("Fatal:", strings.ReplaceAll(err.Error(), "\n", " "))
 		return ErrConfig
 	}
+	fmt.Println()
+	toolnames := getnames(tools)
+	fmt.Println("tools available:", toolnames)
+	fmt.Println()
 	_, _ = os.Stdin.Read([]byte{0})
 
 	if !mllm.Quiet {
