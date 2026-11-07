@@ -28,6 +28,7 @@ import (
 	"github.com/aerth/mostly/mllm"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
+	"github.com/aerth/orchard/pkg/toolboxes"
 	"gorm.io/gorm"
 )
 
@@ -91,6 +92,13 @@ func main2() error {
 		ThreadReader: nil,
 		DB:           global.gdbx,
 		Toolbox:      orchard.AllTools,
+	}
+	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
+		box, err := toolboxes.NewToolboxFS(dir)
+		if err != nil {
+			return err
+		}
+		ocfg.Toolbox = box.AllTools()
 	}
 	fmt.Println(welcomemodel{}.View().Content)
 	if global.gdbx == nil {
