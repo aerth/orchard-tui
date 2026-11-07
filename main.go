@@ -49,7 +49,7 @@ var global = struct {
 	Refresh   time.Duration
 }{
 	cancelGen: func() {},
-	Refresh:   time.Second,
+	Refresh:   time.Second / 10,
 }
 
 var _ tea.Model = model{}
