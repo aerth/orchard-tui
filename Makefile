@@ -5,4 +5,6 @@ clean:
 	rm -rf bin
 run: build
 	echo bin/orchard-tui -db history.db 2>./orchard.log
+gen: build
+	bin/orchard-tui -h |& tail -n +2 >flags.txt
 

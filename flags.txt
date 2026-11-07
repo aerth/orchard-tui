@@ -1,0 +1,12 @@
+  -db string
+    	path to sqlite db file (optional, for persistence)
+  -host string
+    	host URL ONLY if no env var
+  -model string
+    	model ONLY if no env var
+  -q	disable log
+  -temperature float
+    	temperature (default 1)
+  -thread value
+    	thread ID (if applicable)
+  -v	enable log
