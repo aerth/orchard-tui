@@ -186,6 +186,7 @@ type model struct {
 	userName string // bob
 
 	senderStyle, warningStyle, errorStyle lipgloss.Style
+	Stickybottom                          bool
 }
 
 // View see [model.Update] [model.Init]
@@ -279,7 +280,9 @@ func (m model) Init() tea.Cmd {
 	println("INIT")
 	m.messages = renderConvoSlice(m.convo)
 	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
-	m.viewport.GotoBottom()
+	if m.Stickybottom {
+		m.viewport.GotoBottom()
+	}
 	return textarea.Blink
 }
 
@@ -297,7 +300,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.messages = append(m.messages[i:], renderConvoSlice(m.convo[i:])...) // TODO: optimize again
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
-		m.viewport.GotoBottom()
+		if m.Stickybottom {
+			m.viewport.GotoBottom()
+		}
 		slog.Info("is finished")
 	case os.Signal:
 		global.cancelGen()
@@ -323,7 +328,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
-		m.viewport.GotoBottom()
+		if m.Stickybottom {
+			m.viewport.GotoBottom()
+		}
 		return m, nil
 	case Frag: // incoming assistant stream, fast
 		if msg.M.IsBlank() {
@@ -342,7 +349,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.convo[at].CreatedAt = time.Now()
 		m.messages = renderConvoSlice(m.convo) // TODO: optimize again
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
-		m.viewport.GotoBottom()
+		if m.Stickybottom {
+			m.viewport.GotoBottom()
+		}
 	case tea.WindowSizeMsg:
 		m.viewport.SetWidth(msg.Width)
 		m.textarea.SetWidth(msg.Width)
@@ -354,9 +363,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.messages = renderConvoSlice(m.convo) // TODO: optimize again
 			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
 		}
-		m.viewport.GotoBottom()
+		if m.Stickybottom {
+			m.viewport.GotoBottom()
+		}
 	case tea.KeyPressMsg:
-		switch msg.String() {
+		key := msg.String()
+		switch key {
 		case "ctrl+c", "esc":
 			cancelchan <- syscall.SIGINT
 			return m.WithMessage("Cancelled (press a few more times to quit)"), nil
@@ -377,8 +389,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.messages = renderConvoSlice(m.convo) // TODO: optimize again
 			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
-			m.viewport.GotoBottom()
+			if m.Stickybottom {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
+		case "down", "pgdown", "end":
+			if key == "end" {
+				if m.Stickybottom {
+					m.viewport.GotoBottom()
+				}
+			} else {
+				m.viewport, _ = m.viewport.Update(msg)
+			}
+			m.Stickybottom = m.Stickybottom || m.viewport.AtBottom() || key == "end"
+			return m, nil
+		case "up", "pgup", "home":
+			if key == "home" {
+				m.viewport.GotoTop()
+			} else {
+				m.viewport, _ = m.viewport.Update(msg)
+			}
+			m.Stickybottom = false
+			return m, nil
+
 		case "enter":
 			slog.Info("enter", "size_convo", len(m.convo), "convo", m.convo, "top", m.convo.Top().Aux)
 			if !m.textarea.Focused() { // home page
@@ -396,7 +429,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.messages = renderConvoSlice(m.convo) // TODO: optimize again
 			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
 			m.textarea.Reset()
-			m.viewport.GotoBottom()
+			if m.Stickybottom {
+				m.viewport.GotoBottom()
+			}
 			{
 				global.cancelGen()
 				go startGen(context.TODO(), m.ocfg, slices.DeleteFunc(slices.Clone(m.convo), RemoveEmpty), &PendingStreamTUI{
