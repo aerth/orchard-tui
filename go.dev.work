@@ -4,3 +4,4 @@ use (
 .
 )
 replace github.com/aerth/orchard => ../orchard-ai
+replace github.com/aerth/mostly => ../mostly
