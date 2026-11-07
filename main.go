@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -66,32 +67,23 @@ func main() {
 		opendb(dbfile)
 	}
 	if err := main2(); err != nil {
-		slog.Error("fatal", "err", err)
-		return
+		if !errors.Is(err, ErrConfig) {
+			slog.Error("fatal", "err", err)
+		} else {
+			fmt.Println("Example: LLM_HOST='https://ollama.home.arpa/v1/chat/completions'  LLM_MODEL=gemma4:12b LLM_API_KEY=12345")
+		}
+		os.Exit(1)
 	}
 }
 
-var cancelchan = make(chan os.Signal, 10)
+var (
+	ErrConfig  = errors.New("bad config")
+	cancelchan = make(chan os.Signal, 10)
+)
 
 func main2() error {
 	if global.gdb != nil {
 		defer closedb()
-	}
-	if !mllm.Quiet {
-		// log stuff
-		logfile, err := os.OpenFile("/tmp/orchard.json.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o600)
-		if err != nil {
-			log.Printf("fatal: %v", err)
-		}
-		defer func() {
-			_ = logfile.Close()
-			println("closed log file")
-		}()
-		slog.SetDefault(slog.New(slog.NewJSONHandler(logfile, &slog.HandlerOptions{
-			AddSource: true,
-			Level:     slog.LevelDebug,
-		})))
-		slog.Info("Hello Orchard")
 	}
 	ocfg := orchard.Config{
 		E:            mllm.Default(),
@@ -100,12 +92,33 @@ func main2() error {
 		DB:           global.gdbx,
 		Toolbox:      orchard.AllTools,
 	}
-
 	fmt.Println(welcomemodel{}.View().Content)
 	if global.gdbx == nil {
 		fmt.Println("Persistence is disabled (use -db flag for sqlite)")
 	}
+	if err := startupcheck(); err != nil {
+		fmt.Println("Fatal:", strings.ReplaceAll(err.Error(), "\n", " "))
+		return ErrConfig
+	}
 	_, _ = os.Stdin.Read([]byte{0})
+
+	if !mllm.Quiet {
+		// log stuff
+		logfilename := "/tmp/orchard.json.log"
+		logfile, err := os.OpenFile(logfilename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o600)
+		if err != nil {
+			log.Printf("fatal: %v", err)
+		}
+		defer func() {
+			_ = logfile.Close()
+			println("closed log file", logfilename)
+		}()
+		slog.SetDefault(slog.New(slog.NewJSONHandler(logfile, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     slog.LevelDebug,
+		})))
+		slog.Info("Hello Orchard")
+	}
 	p := tea.NewProgram(initialModel(ocfg), tea.WithoutSignalHandler())
 	global.SendFunc = p.Send // does block
 	signal.Notify(cancelchan, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
@@ -130,6 +143,13 @@ func main2() error {
 		return fmt.Errorf("%w", err)
 	}
 	return nil
+}
+
+func startupcheck() error {
+	ctx := context.TODO()
+	s, _ := orchard.DefaultSystemPrompt()
+	_, err := mllm.Default().Generate(ctx, s, "Create a short greeting for the user", false)
+	return err
 }
 
 type model struct {
