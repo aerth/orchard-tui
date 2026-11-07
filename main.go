@@ -54,7 +54,11 @@ var global = struct {
 	Refresh:   time.Second / 10,
 }
 
-var _ tea.Model = model{}
+var (
+	version             = "0.0.x"
+	gitcommit           = ""
+	_         tea.Model = model{}
+)
 
 func main() {
 	mllm.DefaultWriter = io.Discard
@@ -63,6 +67,12 @@ func main() {
 	mllm.Flags()
 	var dbfile string
 	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence)")
+	flag.BoolFunc("version", "show version info", func(s string) error {
+		fmt.Println(version)
+		fmt.Println(gitcommit)
+		os.Exit(1)
+		return nil
+	})
 	flag.Parse()
 	if dbfile != "" {
 		opendb(dbfile)
