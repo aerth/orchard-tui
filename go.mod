@@ -7,8 +7,8 @@ require (
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/glamour/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.6
-	github.com/aerth/mostly v0.3.4
-	github.com/aerth/orchard v0.0.0-00010101000000-000000000000
+	github.com/aerth/mostly v0.4.1
+	github.com/aerth/orchard v0.0.3
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
 )
@@ -44,7 +44,3 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 )
-
-replace github.com/aerth/mostly => ../mostly
-
-replace github.com/aerth/orchard => ../orchard-ai
