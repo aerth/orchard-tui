@@ -96,7 +96,7 @@ func main2() error {
 	if global.gdbx == nil {
 		fmt.Println("Persistence is disabled (use -db flag for sqlite)")
 	}
-	if err := startupcheck(); err != nil {
+	if err := startupcheck(os.Stdout); err != nil {
 		fmt.Println("Fatal:", strings.ReplaceAll(err.Error(), "\n", " "))
 		return ErrConfig
 	}
@@ -145,10 +145,13 @@ func main2() error {
 	return nil
 }
 
-func startupcheck() error {
+func startupcheck(w io.Writer) error {
 	ctx := context.TODO()
 	s, _ := orchard.DefaultSystemPrompt()
-	_, err := mllm.Default().Generate(ctx, s, "Create a short greeting for the user", false)
+	client := mllm.Default()
+	client.StreamWriter.Writer = nil
+	client.Writer = w
+	_, err := client.Generate(ctx, s, "Create a short greeting for the user, as a robot from a different solar system. The user should be told to press ENTER to begin using the Orchard AI Agent system.", false)
 	return err
 }
 
