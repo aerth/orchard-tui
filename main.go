@@ -80,6 +80,7 @@ func main() {
 	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
 		box, err := toolboxes.NewToolboxFS(dir)
 		if err != nil {
+			fmt.Println("error loading toolbox:", err)
 			return
 		}
 		if addbash {
