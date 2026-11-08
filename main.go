@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -25,6 +26,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/aerth/mostly/godotenv"
 	"github.com/aerth/mostly/mllm"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
@@ -76,8 +78,16 @@ func main() {
 		return nil
 	})
 	flag.Parse()
+	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
+	if s := os.Getenv("ORCHARD_DB"); s != "" && dbfile == "" {
+		dbfile = strings.Replace(dbfile, "~/", os.ExpandEnv("$HOME")+"/", 1)
+		if _, err := os.Stat(dbfile); errors.Is(err, os.ErrNotExist) {
+			_ = os.MkdirAll(filepath.Dir(dbfile), 0o750)
+		}
+	}
 	tools := orchard.AllTools
 	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
+		dir = strings.Replace(dir, "~/", os.ExpandEnv("$HOME")+"/", 1)
 		box, err := toolboxes.NewToolboxFS(dir)
 		if err != nil {
 			fmt.Println("error loading toolbox:", err)
@@ -341,6 +351,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		slog.Info("is finished")
 	case os.Signal:
+		slog.Info("signal received:", "sig", msg)
 		global.cancelGen()
 		return m, nil
 	case string:
