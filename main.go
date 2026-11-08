@@ -298,11 +298,29 @@ func initialModel(ocfg orchard.Config) tea.Model {
 	return x
 }
 
+func (m *model) renderConvo(full bool) {
+	full = full || len(m.messages) == 0
+	if len(m.convo) == 0 {
+		return
+	}
+	if full {
+		m.messages = renderConvoSlice(m.convo)
+	} else {
+		l := len(m.messages)
+		add := len(m.convo) > l
+		a := renderConvoSlice(m.convo[l-1:])
+		if !add {
+			copy(m.messages[l-1:], a[:])
+		} else {
+			m.messages = append(m.messages[:l-1], a...)
+		}
+	}
+	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+}
+
 // Init see [model.View]
 func (m model) Init() tea.Cmd {
 	println("INIT")
-	m.messages = renderConvoSlice(m.convo)
-	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
 	if m.Stickybottom {
 		m.viewport.GotoBottom()
 	}
@@ -317,12 +335,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Error(fmt.Sprintf("unknown packet %s %#v", typ, msg))
 		}
 	case struct{}:
-		i := 0
-		if l := len(m.convo); l > 20 {
-			i = l - 20
-		}
-		m.messages = append(m.messages[i:], renderConvoSlice(m.convo[i:])...) // TODO: optimize again
-		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+		m.renderConvo(true)
 		if m.Stickybottom {
 			m.viewport.GotoBottom()
 		}
@@ -345,12 +358,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case NewAppendMessage: // toolouts, or blank assistant
 		m.convo = append(m.convo, mllm.ChatMessage(msg))
-		m.messages = renderConvoSlice(m.convo) // TODO: optimize again
 		if msg.IsEmpty() && msg.Aux == nil {
 			slog.Info("added empty message to ui", "size_convo", len(m.convo), "size_rendered", len(m.messages), "role", msg.Role, "is_empty", msg.IsBlank())
 			return m, nil
 		}
-		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+		m.renderConvo(false)
 		if m.Stickybottom {
 			m.viewport.GotoBottom()
 		}
@@ -370,22 +382,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.convo[at] = msg.M //m.convo[at].Add(msg.M)
 		m.convo[at].CreatedAt = time.Now()
-		m.messages = renderConvoSlice(m.convo) // TODO: optimize again
-		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+		m.renderConvo(false)
 		if m.Stickybottom {
 			m.viewport.GotoBottom()
 		}
 	case tea.WindowSizeMsg:
 		m.viewport.SetWidth(msg.Width)
 		m.textarea.SetWidth(msg.Width)
-		mdrend = tuilite.NewRenderer(msg.Width - 4)
 		m.viewport.SetHeight(msg.Height - m.textarea.Height())
-
-		if len(m.messages) > 0 {
-			// Wrap content before setting it.
-			m.messages = renderConvoSlice(m.convo) // TODO: optimize again
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
-		}
+		mdrend = tuilite.NewRenderer(msg.Width - 4)
+		m.renderConvo(true)
 		if m.Stickybottom {
 			m.viewport.GotoBottom()
 		}
@@ -410,8 +416,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				mdrend = tuilite.NewRenderer(m.viewport.Width())
 			}
-			m.messages = renderConvoSlice(m.convo) // TODO: optimize again
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+			m.renderConvo(true)
 			if m.Stickybottom {
 				m.viewport.GotoBottom()
 			}
@@ -449,8 +454,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			usermsg := mllm.Message{Role: "user", Content: val}.
 				ToThreadMessage(m.userName, m.threadID)
 			m.convo = append(m.convo, *usermsg)
-			m.messages = renderConvoSlice(m.convo) // TODO: optimize again
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+			m.renderConvo(false)
 			m.textarea.Reset()
 			if m.Stickybottom {
 				m.viewport.GotoBottom()

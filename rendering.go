@@ -6,7 +6,6 @@ import (
 	"strings"
 	"uuid"
 
-	"charm.land/lipgloss/v2"
 	"github.com/aerth/mostly/mllm"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
 )
@@ -82,8 +81,7 @@ func (m model) WithMessage(v string) model {
 	latest := mllm.Message{}.ToThreadMessage("", m.threadID)
 	latest.Aux = v
 	m.convo = append(m.convo, *latest)
-	m.messages = renderConvoSlice(m.convo) // TODO: optimize again
-	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
+	m.renderConvo(false)
 	m.viewport.GotoBottom()
 	return m
 }
