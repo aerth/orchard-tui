@@ -293,6 +293,7 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		ocfg:         ocfg,
 		messages:     renderConvoSlice(convo),
 		convo:        convo,
+		Stickybottom: true,
 	}
 	return x
 }
