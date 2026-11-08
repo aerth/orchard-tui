@@ -58,9 +58,31 @@ See `/tmp/orchard.json.log` and run with `-v` for more logs.
 
 ## Dynamic Tools
 
-ORCHARD_TOOLS=~/src/otools
+This program reads ORCHARD_TOOLS env to create a dynamic toolbox.
 
-For example: `${ORCHARD_TOOLS}/toolboxes/files/grep.bash`
+If used, this replaces the default toolbox (currently only bash tool).
+To use the builtin bash tool *with* the toolbox, add `--bash` flag when opening orchard-tui.
+
+For a nice starter pack of tools to use, try [orchard-tools](https://github.com/aerth/orchard-tools) toolbox.
+
+```
+git clone https://github.com/aerth/orchard-tools ~/src/otools
+ORCHARD_TOOLS=~/src/otools orchard-tui -db /tmp/orchard.db --bash
+```
+
+### ORCHARD_TOOLS directory structure
+
+For example:
+
+```filetree
+${ORCHARD_TOOLS}/toolboxes/files/grep.bash
+${ORCHARD_TOOLS}/toolboxes/web/web_search.bash
+${ORCHARD_TOOLS}/toolboxes/web/.env
+${ORCHARD_TOOLS}/.env
+```
+
+For now, env files in a toolbox is only used for scripts in that toolbox,
+If no .env file exists in the inner toolbox, the main toolbox .env is used
 
 The tool spec is created from the comments at the top of the script.
 
@@ -75,3 +97,6 @@ if [[ "$3" == "true" ]]; then
 fi
 rg "${flags[@]}" "${1}" "${2:-.}"
 ```
+
+If the script spec is formatted correctly, the tool will be available to use.
+The tool calling is fully abstracted, isolating the llm from the execution logic and tool implementation.
