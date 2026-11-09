@@ -34,20 +34,29 @@ make
 
 ## Usage
 
-llama.cpp example
+Instead of always using flags and export env before opening, consider a ~/.config/orchard/env file.
+
+Env: `LLM_MODEL LLM_HOST LLM_API_KEY ORCHARD_DB ORCHARD_TOOLS`
+
+When using a database for persistent conversations, you will want to isolate sessions.
+Use `$PWD` as thread ID: `orchard-tui -thread $PWD` (/tmp/foo is then hashed becomes thread UUID `916947ec-7389-84c5-7fa8-c52563c92853`)
+
+Minimally, a model and host is required. Without ORCHARD_TOOLS, a basic shell tool is the only tool available to the model.
+
+### llama.cpp example
 
 ```bash
 export LLM_MODEL=gemma-4-E2B-it-Q4_K_M LLM_HOST=http://127.0.0.1:9931/v1/chat/completions LLM_API_KEY=keyhere
 cd path/to/some/project
-orchard-tui -db /tmp/orchard.sqlite 2>/tmp/orchard.log
+orchard-tui -db /tmp/orchard.sqlite -thread "$PWD" 2>/tmp/orchard.log
 ```
 
-ollama example
+### ollama example
 
 ```bash
 export LLM_MODEL=gemma4:12b LLM_HOST=http://127.0.0.1:11434/v1/chat/completions
 cd path/to/some/project
-orchard-tui -db /tmp/orchard.sqlite 2>/tmp/orchard.log
+orchard-tui -db /tmp/orchard.sqlite -thread "$PWD" 2>/tmp/orchard.log
 ```
 
 ## Logs
