@@ -1,13 +1,16 @@
 GIT_TAG := $(shell git tag | sort -V | tail -n 1)
 GIT_COMMIT := $(shell git rev-parse HEAD)
-LDFLAGS=-X main.version=${GIT_TAG} -X main.gitcommit=${GIT_COMMIT}
+XLDFLAGS=-X main.version=${GIT_TAG} -X main.gitcommit=${GIT_COMMIT}
+XGOFLAGS=-v -trimpath
 build:
-	go build -v -trimpath -ldflags="${LDFLAGS}" -v -o bin/ ./...
+	go build ${XGOFLAGS} -ldflags="${XLDFLAGS}" -v -o bin/ ./...
 	go test -c -v -o bin/ ./...
+	ls -l bin/*
+	# try:
+	# bin/orchard-tui -db history.db 2>./orchard.log
 clean:
 	rm -rf bin
 run: build
-	echo bin/orchard-tui -db history.db 2>./orchard.log
 gen: build
 	bin/orchard-tui -h |& tail -n +2 >flags.txt
 install:
