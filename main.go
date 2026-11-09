@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -62,15 +63,28 @@ var (
 	_         tea.Model = model{}
 )
 
+func randomPrompt() string {
+	a := []string{
+		"read and explain ./Makefile",
+		"summarize README.md",
+		"Hi",
+		"what tools are available? give names and descriptions",
+	}
+	return a[rand.Intn(len(a))]
+}
+
 func main() {
 	mllm.DefaultWriter = io.Discard
-	mllm.DefaultThread = uuid.MustParse("00010100-6d4b-4e07-9703-b9baac13ffaa")
+	wd, _ := os.Getwd()
+	mllm.DefaultThread = mllm.ThreadHasher(wd) // use hash(currentdir) as thread uuid
 	mllm.DefaultOptions.Debug = 0
 	mllm.Flags()
 	var dbfile string
 	var addbash bool
+	var smoketest bool
 	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence)")
 	flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
+	flag.BoolVar(&smoketest, "smoke", smoketest, "say hello and exit (no tools)")
 	flag.BoolFunc("version", "show version info", func(s string) error {
 		fmt.Println(version)
 		fmt.Println(gitcommit)
@@ -80,10 +94,12 @@ func main() {
 	flag.Parse()
 	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
 	if s := os.Getenv("ORCHARD_DB"); s != "" && dbfile == "" {
+		dbfile = s
 		dbfile = strings.Replace(dbfile, "~/", os.ExpandEnv("$HOME")+"/", 1)
 		if _, err := os.Stat(dbfile); errors.Is(err, os.ErrNotExist) {
 			_ = os.MkdirAll(filepath.Dir(dbfile), 0o750)
 		}
+		slog.Info("using ORCHARD_DB", "path", dbfile, "from", s)
 	}
 	tools := orchard.AllTools
 	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
@@ -239,7 +255,7 @@ func (m model) View() tea.View {
 
 func initialModel(ocfg orchard.Config) tea.Model {
 	ta := textarea.New()
-	ta.Placeholder = "Send a message..."
+	ta.Placeholder = "Send a message. Press Ctrl+Q to quit. Shift+Tab to toggle markdown."
 	ta.SetVirtualCursor(false)
 	ta.Focus() // activate input textarea
 
@@ -247,7 +263,7 @@ func initialModel(ocfg orchard.Config) tea.Model {
 	ta.CharLimit = 28000
 
 	ta.SetWidth(30)
-	ta.SetHeight(3)
+	ta.MinHeight = 3
 	ta.DynamicHeight = true
 
 	// Remove cursor line styling
@@ -288,8 +304,8 @@ func initialModel(ocfg orchard.Config) tea.Model {
 			convo = convo[:len(convo)-1]
 		}
 	}
-	if ta.Length() == 0 {
-		ta.InsertString("read and explain ./Makefile")
+	if ta.Length() == 0 && len(convo) == 0 {
+		ta.InsertString(randomPrompt())
 	}
 	x := model{
 		textarea:     ta,
@@ -330,7 +346,6 @@ func (m *model) renderConvo(full bool) {
 
 // Init see [model.View]
 func (m model) Init() tea.Cmd {
-	println("INIT")
 	if m.Stickybottom {
 		m.viewport.GotoBottom()
 	}
@@ -349,7 +364,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.Stickybottom {
 			m.viewport.GotoBottom()
 		}
-		slog.Info("is finished")
 	case os.Signal:
 		slog.Info("signal received:", "sig", msg)
 		global.cancelGen()
@@ -457,7 +471,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textarea.Focus()
 				return m, nil
 			}
-			global.cancelGen()
 			val := m.textarea.Value()
 			if strings.TrimSpace(val) == "" {
 				return m, nil
@@ -471,7 +484,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoBottom()
 			}
 			{
-				global.cancelGen()
 				go startGen(context.TODO(), m.ocfg, slices.DeleteFunc(slices.Clone(m.convo), RemoveEmpty), &PendingStreamTUI{
 					From:   m.ocfg.From,
 					Thread: m.threadID,
@@ -507,7 +519,10 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 		return
 	}
 	ctx, global.cancelGen = context.WithCancel(ctx)
-	e.SystemPrompt = orchard.DefaultSystemPrompt
+
+	if e.SystemPrompt == nil {
+		e.SystemPrompt = orchard.DefaultSystemPrompt
+	}
 	slog.Info("starting", "size_convo", len(actualconvo), "top", actualconvo.Top(), "db", e.DB != nil)
 	if e.DB == nil {
 		e.ThreadReader = func(ctx context.Context, threadID uuid.UUID) (mllm.ChatMessages, error) {
@@ -521,10 +536,12 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 	}
 
 	// add our [mllm.StreamHandler] to get streamed text to UI
-	e.Handlers = append(e.Handlers, pending.bghandle)
+
 	if len(e.Toolbox) == 0 {
+		go global.SendFunc(warning("Using default tools..."))
 		e.Toolbox = orchard.AllTools
 	}
+	e.Handlers = append(e.Handlers, pending.bghandle)
 
 	// orchard hooks
 	e.PreTextHook = pending.PreText
@@ -542,3 +559,5 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 	pending.reset()
 	slog.Info("got out", "n", len(out))
 }
+
+type warning string
