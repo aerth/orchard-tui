@@ -4,30 +4,28 @@ This is a **very basic** example of a terminal interface for [Orchard AI Agent](
 
 ## **Warnings**
 
-Watch output and logs carefully!!
+This is BETA software, watch output and logs carefully!
 
-- Is unsafe.
 - Runs shell commands.
-- Is dangerous.
 - Executes code provided by LLM.
 
 ## Installation
 
 Install easily with Go.
 
-Since we use sqlite, you must have a C compiler.
+Since we use sqlite, you must have a C compiler. Compiling the sqlite part takes a while, be patient!
 
 Go get:
 
 ```bash
 export GOBIN=~/bin/
-go install -v -trimpath -ldflags '-w -s' github.com/aerth/orchard-tui@latest
+go install -v github.com/aerth/orchard-tui@latest
 ls -l ${GOBIN}/orchard-tui
 ```
 
 Or, clone and use `make`:
 
-```
+```bash
 git clone https://github.com/aerth/orchard-tui
 cd orchard-tui
 make
@@ -61,7 +59,7 @@ See `/tmp/orchard.json.log` and run with `-v` for more logs.
 This program reads ORCHARD_TOOLS env to create a dynamic toolbox.
 
 If used, this replaces the default toolbox (currently only bash tool).
-To use the builtin bash tool *with* the toolbox, add `--bash` flag when opening orchard-tui.
+To use the builtin bash tool _with_ the toolbox, add `--bash` flag when opening orchard-tui.
 
 For a nice starter pack of tools to use, try [orchard-tools](https://github.com/aerth/orchard-tools) toolbox.
 
@@ -72,9 +70,8 @@ ORCHARD_TOOLS=~/src/otools orchard-tui -db /tmp/orchard.db --bash
 
 ### ORCHARD_TOOLS directory structure
 
-For example:
-
-```filetree
+```bash
+# example file tree
 ${ORCHARD_TOOLS}/toolboxes/files/grep.bash
 ${ORCHARD_TOOLS}/toolboxes/web/web_search.bash
 ${ORCHARD_TOOLS}/toolboxes/web/.env
@@ -86,6 +83,8 @@ If no .env file exists in the inner toolbox, the main toolbox .env is used
 
 The tool spec is created from the comments at the top of the script.
 
+For now, the toolbox subdirectories are for organization only and all toolboxes are combined into one for LLM.
+
 ```bash
 # Description: Use grep (ripgrep) to find line-numbers and filenames for keywords..
 # Param: phrase - The text to search for [string] [required]
@@ -93,7 +92,7 @@ The tool spec is created from the comments at the top of the script.
 # Param: case_insensitive - Add -i flag if we arent sure about spelling. Causes more false positives! [boolean] [optional]
 flags=(--line-number --word-regexp)
 if [[ "$3" == "true" ]]; then
-  flags+=("--ignore-case")
+	flags+=("--ignore-case")
 fi
 rg "${flags[@]}" "${1}" "${2:-.}"
 ```
