@@ -213,7 +213,7 @@ func main2(tools mllm.Tools) error {
 
 func startupcheck(w io.Writer) error {
 	ctx := context.TODO()
-	s, _ := orchard.DefaultSystemPrompt()
+	s, _ := orchard.DefaultSystemPrompt(&orchard.PromptInput{})
 	client := mllm.Default()
 	client.StreamWriter.Writer = nil
 	client.Writer = w
