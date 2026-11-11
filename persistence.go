@@ -13,7 +13,7 @@ func opendb(dbfile string) {
 	if dbfile == "" {
 		return
 	}
-	slog.Info("opening db")
+	slog.Info("opening db...", "thread", mllm.DefaultThread.String())
 	db, err := gorm.Open(sqlite.Open(dbfile), &gorm.Config{})
 	if err != nil {
 		log.Fatalln(err)

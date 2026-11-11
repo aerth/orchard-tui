@@ -76,7 +76,6 @@ func randomPrompt() string {
 func main() {
 	mllm.DefaultWriter = io.Discard
 	wd, _ := os.Getwd()
-	mllm.DefaultThread = mllm.ThreadHasher(wd) // use hash(currentdir) as thread uuid
 	mllm.DefaultOptions.Debug = 0
 	mllm.Flags()
 	var dbfile string
@@ -96,6 +95,9 @@ func main() {
 	if cwd, _ := os.Getwd(); wd != "" && cwd != wd {
 		if err := os.Chdir(wd); err != nil {
 			log.Fatalf("chdir: %+v", err)
+		}
+		if mllm.DefaultThread == uuid.Nil() {
+			mllm.DefaultThread = mllm.ThreadHasher(wd) // use hash(currentdir) as thread uuid
 		}
 	}
 	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
@@ -122,8 +124,10 @@ func main() {
 		}
 	}
 	if dbfile != "" {
-		println("opening db...")
 		opendb(dbfile)
+	}
+	if smoketest {
+		return
 	}
 	if err := main2(tools); err != nil {
 		if !errors.Is(err, ErrConfig) {
