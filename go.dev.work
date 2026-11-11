@@ -1,7 +1,0 @@
-go 1.27.3
-
-use (
-.
-)
-replace github.com/aerth/orchard => ../orchard-ai
-replace github.com/aerth/mostly => ../mostly
