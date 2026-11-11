@@ -82,7 +82,8 @@ func main() {
 	var dbfile string
 	var addbash bool
 	var smoketest bool
-	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence)")
+	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence. in-memory usage: \"file::memory:?cache=shared\")")
+	flag.StringVar(&wd, "C", wd, "change directory before anything")
 	flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
 	flag.BoolVar(&smoketest, "smoke", smoketest, "say hello and exit (no tools)")
 	flag.BoolFunc("version", "show version info", func(s string) error {
@@ -92,6 +93,11 @@ func main() {
 		return nil
 	})
 	flag.Parse()
+	if cwd, _ := os.Getwd(); wd != "" && cwd != wd {
+		if err := os.Chdir(wd); err != nil {
+			log.Fatalf("chdir: %+v", err)
+		}
+	}
 	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
 	if s := os.Getenv("ORCHARD_DB"); s != "" && dbfile == "" {
 		dbfile = s
