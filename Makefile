@@ -5,9 +5,9 @@ XGOFLAGS=-v -trimpath
 build:
 	go build ${XGOFLAGS} -ldflags="${XLDFLAGS}" -v -o bin/ ./...
 	go test -c -v -o bin/ ./...
-	ls -l bin/*
-	# try:
+	# compiled successfully! start with:
 	# bin/orchard-tui -db history.db 2>./orchard.log
+	ls -l bin/*
 clean:
 	rm -rf bin
 run: build
