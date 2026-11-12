@@ -78,7 +78,14 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 			m.convo = m.convo[:len(m.convo)-n]
 			m.renderConvo(false)
 		}
-		return m.WithMessage(fmt.Sprintf("undid %d messages now have %d", n, len(m.convo))), nil
+		*m = m.WithMessage(fmt.Sprintf("undid %d messages now have %d", n, len(m.convo)))
+		if m.ocfg.DB != nil {
+			ctx := context.TODO()
+			if _, err := m.ocfg.DB.Where("thread = ? AND created_at > ?", m.threadID, m.convo.Top().CreatedAt).Delete(ctx); err != nil {
+				return m.WithError(err), nil
+			}
+		}
+		return m, nil
 	case "cd":
 		if len(args) != 2 {
 			return m.WithError(fmt.Errorf("need directory to cd")), nil
