@@ -46,6 +46,12 @@ var logo string
 //go:embed flags.txt
 var flagstxt string
 
+//go:embed docs/helpflags.md
+var helpflags string
+
+//go:embed docs/helpslash.md
+var helpslash string
+
 var welcomemessage = logo + "\n\n\nWelcome to Orchard AI (Beta)\n" +
 	`
 Copyright (c) 2026 aerth

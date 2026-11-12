@@ -11,7 +11,12 @@ build:
 clean:
 	rm -rf bin
 run: build
+	bin/orchard-tui --version
 gen: build
 	bin/orchard-tui -h |& tail -n +2 >flags.txt
 install:
 	install bin/orchard-tui ~/bin/
+genhelpflags:
+	orchard-io <<<"use edit_create to update docs/helpflags.md based on ./flags.txt file"
+genhelpslash:
+	orchard-io <<<"use edit_create to update docs/helpslash.md based on ./slashcommands.go file"

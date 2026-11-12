@@ -57,7 +57,7 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 	args := strings.Fields(cmd)
 	switch args[0] {
 	case "help":
-		m.addNewMessage("", "Help mode here")
+		m.addNewMessage("", "# Help\n"+helpflags+"\n\n"+helpslash)
 		return m, nil
 	case "undo":
 		n := 1

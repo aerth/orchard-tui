@@ -29,6 +29,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/aerth/mostly/godotenv"
 	"github.com/aerth/mostly/mllm"
+	"github.com/aerth/mostly/stackerr"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
 	"github.com/aerth/orchard/pkg/toolboxes"
@@ -73,6 +74,26 @@ func randomPrompt() string {
 	return a[rand.Intn(len(a))]
 }
 
+func tilde(s string) string {
+	s = strings.Replace(s, "~/", os.ExpandEnv("$HOME")+"/", 1)
+	return os.ExpandEnv(s)
+}
+
+func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
+	tools := orchard.AllTools
+	dirs := strings.SplitSeq(dirsfull, ":")
+	for dir := range dirs {
+		dir = strings.TrimSpace(dir)
+		dir = tilde(dir)
+		box, err := toolboxes.NewToolboxFS(dir)
+		if err != nil {
+			return tools, stackerr.Errorf("error loading toolbox %q: %w", dir, err)
+		}
+		tools = append(tools, box.AllTools()...)
+	}
+	return tools, nil
+}
+
 func main() {
 	mllm.DefaultWriter = io.Discard
 	wd, _ := os.Getwd()
@@ -105,22 +126,19 @@ func main() {
 	}
 	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
 	if s := os.Getenv("ORCHARD_DB"); s != "" && dbfile == "" {
-		dbfile = s
-		dbfile = strings.Replace(dbfile, "~/", os.ExpandEnv("$HOME")+"/", 1)
+		dbfile = tilde(s)
 		if _, err := os.Stat(dbfile); errors.Is(err, os.ErrNotExist) {
 			_ = os.MkdirAll(filepath.Dir(dbfile), 0o750)
 		}
 		slog.Info("using ORCHARD_DB", "path", dbfile, "from", s)
 	}
-	tools := orchard.AllTools
-	if dir := os.Getenv("ORCHARD_TOOLS"); dir != "" {
-		dir = strings.Replace(dir, "~/", os.ExpandEnv("$HOME")+"/", 1)
-		box, err := toolboxes.NewToolboxFS(dir)
-		if err != nil {
-			fmt.Println("error loading toolbox:", err)
+	var tools mllm.Tools
+	if dirs := os.Getenv("ORCHARD_TOOLS"); dirs != "" {
+		var err error
+		if tools, err = toolboxesLoad(dirs); err != nil {
+			slog.Error("load toolboxes", "err", err)
 			return
 		}
-		tools = append(orchard.AllTools, box.AllTools()...)
 	}
 	if dbfile != "" {
 		opendb(dbfile)
@@ -222,11 +240,14 @@ func main2(tools mllm.Tools) error {
 
 func startupcheck(w io.Writer) error {
 	ctx := context.TODO()
-	s, _ := orchard.DefaultSystemPrompt(&orchard.PromptInput{})
-	client := mllm.Default()
+	client := orchard.Config{E: mllm.Default()}
 	client.StreamWriter.Writer = nil
 	client.Writer = w
-	_, err := client.Generate(ctx, s, "Create a short greeting for the user, as a robot from a different solar system. The user should be told to press ENTER to begin using the Orchard AI Agent system.", false)
+	s, err := client.SystemPrompt()
+	if err != nil {
+		return err
+	}
+	_, err = client.Generate(ctx, s, "Create a short greeting for the user, as a robot from a different solar system. The user should be told to press ENTER to begin using the Orchard AI Agent system.", false)
 	return err
 }
 
@@ -533,10 +554,6 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 		return
 	}
 	ctx, global.cancelGen = context.WithCancel(ctx)
-
-	if e.SystemPrompt == nil {
-		e.SystemPrompt = orchard.DefaultSystemPrompt
-	}
 	slog.Info("starting", "size_convo", len(actualconvo), "top", actualconvo.Top(), "db", e.DB != nil)
 	if e.DB == nil {
 		e.ThreadReader = func(ctx context.Context, threadID uuid.UUID) (mllm.ChatMessages, error) {

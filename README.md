@@ -2,12 +2,7 @@
 
 This is a **very basic** example of a terminal interface for [Orchard AI Agent](https://github.com/aerth/orchard).
 
-## **Warnings**
-
-This is BETA software, watch output and logs carefully!
-
-- Runs shell commands.
-- Executes code provided by LLM.
+Markdown is nicely "rendered" to the terminal window, this can be toggled with "shift+tab".
 
 ## Installation
 
@@ -17,10 +12,9 @@ Since we use sqlite, you must have a C compiler. Compiling the sqlite part takes
 
 Go get:
 
+Install to ~/bin/ directory
 ```bash
-export GOBIN=~/bin/
-go install -v github.com/aerth/orchard-tui@latest
-ls -l ${GOBIN}/orchard-tui
+GOBIN=~/bin go install -v github.com/aerth/orchard-tui@latest
 ```
 
 Or, clone and use `make`:
@@ -67,8 +61,8 @@ See `/tmp/orchard.json.log` and run with `-v` for more logs.
 
 This program reads ORCHARD_TOOLS env to create a dynamic toolbox.
 
-If used, this replaces the default toolbox (currently only bash tool).
-To use the builtin bash tool _with_ the toolbox, add `--bash` flag when opening orchard-tui.
+If used, this keeps the default `orchard.AllTools` (currently only bash tool).
+To use only the toolboxes _without_ the builtin bash tool, add `--no-bash` flag when opening orchard-tui.
 
 For a nice starter pack of tools to use, try [orchard-tools](https://github.com/aerth/orchard-tools) toolbox.
 
