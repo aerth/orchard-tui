@@ -17,6 +17,7 @@ gen: build
 install:
 	install bin/orchard-tui ~/bin/
 genhelpflags:
-	orchard-io <<<"use edit_create to update docs/helpflags.md based on ./flags.txt file"
+	orchard-io <<<"for our TUI, use edit_create to update docs/helpflags.md based on ./flags.txt file. use nice markdown."
 genhelpslash:
-	orchard-io <<<"use edit_create to update docs/helpslash.md based on ./slashcommands.go file"
+	orchard-io <<<"for our TUI, use edit_create to update docs/helpslash.md based on ./slashcommands.go file. use nice markdown."
+genhelp: gen genhelpflags genhelpslash

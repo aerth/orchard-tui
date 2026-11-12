@@ -1,12 +1,16 @@
-  -bash
-    	add the default bash tool even when using toolbox tools
+  -change-dir string
+    	change directory before anything (default "/home/username/src/orchard-tui")
   -db string
-    	path to sqlite db file (optional, for persistence)
+    	path to sqlite db file (optional, for persistence. in-memory usage: "file::memory:?cache=shared")
   -host string
     	host URL ONLY if no env var
   -model string
     	model ONLY if no env var
+  -no-bash
+    	remove bash tool, only use toolboxes
   -q	disable log
+  -smoke
+    	say hello and exit (no tools)
   -temperature float
     	temperature (default 1)
   -thread value

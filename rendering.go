@@ -13,11 +13,11 @@ import (
 func renderConvoSlice(convo mllm.ChatMessages) []string {
 	s := make([]string, len(convo))
 	for i := range convo {
-		if convo[i].Aux != nil {
-			s[i] = fmt.Sprint(convo[i].Aux)
-		} else {
-			s[i] = FormatMessage(convo[i])
-		}
+		// if convo[i].Aux != nil {
+		//		s[i] = fmt.Sprint(convo[i].Aux)
+		//		} else {
+		s[i] = FormatMessage(convo[i])
+		//		}
 	}
 	return s
 }
