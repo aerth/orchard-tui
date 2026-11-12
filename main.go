@@ -79,11 +79,14 @@ func main() {
 	mllm.DefaultOptions.Debug = 0
 	mllm.Flags()
 	var dbfile string
-	var addbash bool
 	var smoketest bool
 	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence. in-memory usage: \"file::memory:?cache=shared\")")
-	flag.StringVar(&wd, "C", wd, "change directory before anything")
-	flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
+	flag.StringVar(&wd, "change-dir", wd, "change directory before anything")
+	//flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
+	flag.BoolFunc("no-bash", "remove bash tool, only use toolboxes", func(s string) error {
+		orchard.AllTools = nil
+		return nil
+	})
 	flag.BoolVar(&smoketest, "smoke", smoketest, "say hello and exit (no tools)")
 	flag.BoolFunc("version", "show version info", func(s string) error {
 		fmt.Println(version)
@@ -96,9 +99,9 @@ func main() {
 		if err := os.Chdir(wd); err != nil {
 			log.Fatalf("chdir: %+v", err)
 		}
-		if mllm.DefaultThread == uuid.Nil() {
-			mllm.DefaultThread = mllm.ThreadHasher(wd) // use hash(currentdir) as thread uuid
-		}
+	}
+	if mllm.DefaultThread == uuid.Nil() {
+		mllm.DefaultThread = mllm.ThreadHasher(wd) // use hash(currentdir) as thread uuid
 	}
 	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
 	if s := os.Getenv("ORCHARD_DB"); s != "" && dbfile == "" {
@@ -117,11 +120,7 @@ func main() {
 			fmt.Println("error loading toolbox:", err)
 			return
 		}
-		if addbash {
-			tools = append(orchard.AllTools, box.AllTools()...)
-		} else {
-			tools = box.AllTools()
-		}
+		tools = append(orchard.AllTools, box.AllTools()...)
 	}
 	if dbfile != "" {
 		opendb(dbfile)
@@ -292,6 +291,7 @@ func initialModel(ocfg orchard.Config) tea.Model {
 
 	if mllm.DefaultThread == uuid.Nil() {
 		slog.Error("nil thread ID")
+		return nil
 	} else {
 		slog.Info("welcome thread", "id", mllm.DefaultThread)
 	}
@@ -430,7 +430,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.Stickybottom {
 			m.viewport.GotoBottom()
 		}
-	case tea.KeyPressMsg:
+	case tea.KeyPressMsg: // keybinds
 		key := msg.String()
 		switch key {
 		case "ctrl+c", "esc":
@@ -485,11 +485,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if strings.TrimSpace(val) == "" {
 				return m, nil
 			}
+			if val[0] == '/' || val[0] == '!' {
+				m.textarea.Reset()
+				return m.SlashCommandHandler(val)
+			}
+			m.textarea.Reset()
 			usermsg := mllm.Message{Role: "user", Content: val}.
 				ToThreadMessage(m.userName, m.threadID)
 			m.convo = append(m.convo, *usermsg)
 			m.renderConvo(false)
-			m.textarea.Reset()
 			if m.Stickybottom {
 				m.viewport.GotoBottom()
 			}
