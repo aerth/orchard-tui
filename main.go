@@ -563,7 +563,7 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 	e.FinishHook = pending.Finish
 
 	// orchard ai - multiple rounds, tool calls
-	out, err := orchard.Create(ctx, e.ThreadID, e)
+	out, err := orchard.Create(ctx, e)
 	if err != nil {
 		slog.Error("error streaming", "err", err)
 		go global.SendFunc(err)
