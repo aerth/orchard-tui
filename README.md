@@ -8,50 +8,74 @@ Markdown is nicely "rendered" to the terminal window, this can be toggled with "
 
 Install easily with Go.
 
-Since we use sqlite, you must have a C compiler. Compiling the sqlite part takes a while, be patient!
+Since we use sqlite for persistence, you must have a C compiler. Compiling the sqlite part takes a while, be patient!
+
+Otherwise, orchard-tui is a single executable. You can install it where you prefer.
+Below are a few ways one might install to `~/bin/orchard-tui`
 
 Go get:
 
 Install to ~/bin/ directory
 ```bash
 GOBIN=~/bin go install -v github.com/aerth/orchard-tui@latest
+~/bin/orchard-tui
 ```
 
-Or, clone and use `make`:
+Or, the right way. Clone and use `make`:
 
 ```bash
 git clone https://github.com/aerth/orchard-tui
 cd orchard-tui
-make
-./bin/orchard-tui
+make && make install
+~/bin/orchard-tui
 ```
 
 ## Usage
 
-Instead of always using flags and export env before opening, consider a ~/.config/orchard/env file.
+Minimally, `LLM_MODEL` and `LLM_HOST` is required. Without `ORCHARD_TOOLS`, a basic shell tool is the only tool available to the model. If `LLM_API_KEY` is present, it is added to Authentication header for each llm request.
 
-Env: `LLM_MODEL LLM_HOST LLM_API_KEY ORCHARD_DB ORCHARD_TOOLS`
+Use `-h` to show command-line flag usage, and from the chat you can use `/help` to show slash commands and key bindings.
 
-When using a database for persistent conversations, you will want to isolate sessions.
-Use `$PWD` as thread ID: `orchard-tui -thread $PWD` (/tmp/foo is then hashed becomes thread UUID `916947ec-7389-84c5-7fa8-c52563c92853`)
+### Configuration 
 
-Minimally, a model and host is required. Without ORCHARD_TOOLS, a basic shell tool is the only tool available to the model.
+Instead of always using flags and export env to run `orchard-tui`, consider a `~/.config/orchard/env` file.
+
+In `~/.config/orchard/env`:
+
+```bash
+# env config for orchard (https://github.com/aerth/orchard)
+LLM_HOST='https://ollama.home.arpa'
+LLM_MODEL=gemma4:12b
+LLM_API_KEY=abcdef123456
+LLM_THINK=low
+# if ORCHARD_TOOLS is used and this directory does not exist, the program will not start.
+#ORCHARD_TOOLS=~/src/otools
+# if ORCHARD_DB is used, persistence is activated.
+#ORCHARD_DB=~/.local/state/orchard/orchard.db
+```
 
 ### llama.cpp example
 
 ```bash
 export LLM_MODEL=gemma-4-E2B-it-Q4_K_M LLM_HOST=http://127.0.0.1:9931/v1/chat/completions LLM_API_KEY=keyhere
+export ORCHARD_DB=/tmp/orchard.sqlite
 cd path/to/some/project
-orchard-tui -db /tmp/orchard.sqlite -thread "$PWD" 2>/tmp/orchard.log
+orchard-tui
 ```
 
 ### ollama example
 
 ```bash
 export LLM_MODEL=gemma4:12b LLM_HOST=http://127.0.0.1:11434/v1/chat/completions
+export ORCHARD_DB=/tmp/orchard.sqlite
 cd path/to/some/project
-orchard-tui -db /tmp/orchard.sqlite -thread "$PWD" 2>/tmp/orchard.log
+# specifying thread allows grouping multi-directory conversations in one thread.
+orchard-tui
 ```
+
+## Persistence (conversation history)
+
+When using a database for persistent conversations, we use `$PWD` as thread ID (as if thread flag was `orchard-tui -thread $PWD`) to automatically create a "thread ID" for each project directory. To specify the conversation thread ID, use the `-thread` flag. If thread argument is not a UUID, then it is hashed. This allows for words such as `-thread foo` to make it easy to use new threadID.
 
 ## Logs
 
@@ -61,14 +85,13 @@ See `/tmp/orchard.json.log` and run with `-v` for more logs.
 
 This program reads ORCHARD_TOOLS env to create a dynamic toolbox.
 
-If used, this keeps the default `orchard.AllTools` (currently only bash tool).
-To use only the toolboxes _without_ the builtin bash tool, add `--no-bash` flag when opening orchard-tui.
+When used, this *adds* to the default tools (`run_bash`). To use **only** the toolboxes _without_ the builtin bash tool, add `--no-bash` flag when opening orchard-tui.
 
 For a nice starter pack of tools to use, try [orchard-tools](https://github.com/aerth/orchard-tools) toolbox.
 
 ```
 git clone https://github.com/aerth/orchard-tools ~/src/otools
-ORCHARD_TOOLS=~/src/otools orchard-tui -db /tmp/orchard.db --bash
+ORCHARD_TOOLS=~/src/otools orchard-tui -db /tmp/orchard.db
 ```
 
 ### ORCHARD_TOOLS directory structure
@@ -77,12 +100,18 @@ ORCHARD_TOOLS=~/src/otools orchard-tui -db /tmp/orchard.db --bash
 # example file tree
 ${ORCHARD_TOOLS}/toolboxes/files/grep.bash
 ${ORCHARD_TOOLS}/toolboxes/web/web_search.bash
-${ORCHARD_TOOLS}/toolboxes/web/.env
-${ORCHARD_TOOLS}/.env
 ```
 
 For now, env files in a toolbox is only used for scripts in that toolbox,
 If no .env file exists in the inner toolbox, the main toolbox .env is used
+
+```bash
+# optional env files
+# used for 'web' toolbox
+${ORCHARD_TOOLS}/toolboxes/web/.env
+# used for any toolbox without their own .env file
+${ORCHARD_TOOLS}/.env
+```
 
 The tool spec is created from the comments at the top of the script.
 
@@ -102,3 +131,9 @@ rg "${flags[@]}" "${1}" "${2:-.}"
 
 If the script spec is formatted correctly, the tool will be available to use.
 The tool calling is fully abstracted, isolating the llm from the execution logic and tool implementation.
+
+## Copyright
+
+Copyright (c) 2026 aerth
+
+See [LICENSE](./LICENSE) file.
