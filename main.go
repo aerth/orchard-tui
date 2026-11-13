@@ -408,7 +408,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.PasteMsg:
 		m.textarea.InsertString(msg.Content)
 		var cmd tea.Cmd
-		m.textarea, cmd = m.textarea.Update(msg)
+		m.textarea, cmd = m.textarea.Update(struct{}{})
 		return m, cmd
 	case tea.PasteEndMsg:
 		return m, nil
