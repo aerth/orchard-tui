@@ -32,6 +32,7 @@ import (
 	"github.com/aerth/mostly/stackerr"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
+	"github.com/aerth/orchard/pkg/builtintools"
 	"github.com/aerth/orchard/pkg/toolboxes"
 	"gorm.io/gorm"
 )
@@ -104,6 +105,10 @@ func main() {
 	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence. in-memory usage: \"file::memory:?cache=shared\")")
 	flag.StringVar(&wd, "change-dir", wd, "change directory before anything")
 	//flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
+	flag.Func("guardian-allow", "additional text to help bash guardian identify allowed commands, may be used multiple times", func(s string) error {
+		builtintools.AddGuardPrompt(s)
+		return nil
+	})
 	flag.BoolFunc("no-bash", "remove bash tool, only use toolboxes", func(s string) error {
 		orchard.AllTools = nil
 		return nil
@@ -179,13 +184,14 @@ func main2(tools mllm.Tools) error {
 		ThreadReader: nil,
 		DB:           global.gdbx,
 		Toolbox:      tools,
+		PromptSuffix: "We are in a TUI that renders markdown nicely for the user.",
 	}
 	fmt.Println(welcomemodel{}.View().Content)
 	if global.gdbx == nil {
 		fmt.Println("Persistence is disabled (use -db flag for sqlite)")
 	}
 	fmt.Println()
-	if err := startupcheck(os.Stdout); err != nil {
+	if err := startupcheck(ocfg, os.Stdout); err != nil {
 		fmt.Println("Fatal:", strings.ReplaceAll(err.Error(), "\n", " "))
 		return ErrConfig
 	}
@@ -238,16 +244,17 @@ func main2(tools mllm.Tools) error {
 	return nil
 }
 
-func startupcheck(w io.Writer) error {
+func startupcheck(client orchard.Config, w io.Writer) error {
 	ctx := context.TODO()
-	client := orchard.Config{E: mllm.Default()}
+	//client := orchard.Config{E: mllm.Default()}
+	client.Toolbox = nil
 	client.StreamWriter.Writer = nil
 	client.Writer = w
 	s, err := client.SystemPrompt()
 	if err != nil {
 		return err
 	}
-	_, err = client.Generate(ctx, s, "Create a short greeting for the user, as a robot from a different solar system. The user should be told to press ENTER to begin using the Orchard AI Agent system.", false)
+	_, err = client.Generate(ctx, s, "Create a short greeting for the user, as a robot from a different solar system. In it, the user should be told to press ENTER to begin using the Orchard AI Agent system. Markdown OK.", false)
 	return err
 }
 
@@ -346,6 +353,7 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		warningStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
 		err:          nil,
 		userName:     "Bob",
+		page:         1, // home page
 		threadID:     mllm.DefaultThread,
 		ocfg:         ocfg,
 		messages:     renderConvoSlice(convo),
@@ -353,6 +361,13 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		Stickybottom: true,
 	}
 	return x
+}
+
+var pages = []string{
+	0: "home",
+	1: "chat",
+	2: "config",
+	3: "log",
 }
 
 func (m *model) renderConvo(full bool) {
