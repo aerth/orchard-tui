@@ -5,6 +5,7 @@ package main
 import (
 	"log"
 	"log/slog"
+	"time"
 
 	"github.com/aerth/mostly/mllm"
 	"gorm.io/driver/sqlite"
@@ -15,17 +16,20 @@ func opendb(dbfile string) {
 	if dbfile == "" {
 		return
 	}
-	slog.Info("opening db...", "thread", mllm.DefaultThread.String())
 	db, err := gorm.Open(sqlite.Open(dbfile), &gorm.Config{})
 	if err != nil {
-		log.Fatalln(err)
+		slog.Error("opening db failed, will proceed with no persistence", "err", err)
+		time.Sleep(time.Second * 2)
+		return
 	}
+	slog.Info("opened db...", "thread", mllm.DefaultThread.String())
 	global.gdb = db
 	global.gdbx = gorm.G[mllm.ChatMessage](global.gdb)
 
 	if err := db.AutoMigrate(&mllm.ChatMessage{}); err != nil {
+		slog.Error("db migrations failed", "err", err)
 		closedb()
-		log.Fatalln(err)
+		log.Fatalln("update to latest version and try again")
 	}
 }
 
@@ -35,7 +39,11 @@ func closedb() {
 	}
 	sqldb, _ := global.gdb.DB()
 	if sqldb != nil {
-		_ = sqldb.Close()
-		println("closed db")
+		if err := sqldb.Close(); err != nil {
+			slog.Error("closing db", "err", err)
+		} else {
+			slog.Info("closed db")
+			println("closed db")
+		}
 	}
 }
