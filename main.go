@@ -538,6 +538,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			usermsg := mllm.Message{Role: "user", Content: val}.
 				ToThreadMessage(m.userName, m.threadID)
+			if err := AttachImages(val, &usermsg.Message); err != nil {
+				return m.WithError(err), nil
+			}
 			m.convo = append(m.convo, *usermsg)
 			m.renderConvo(false)
 			if m.Stickybottom {
