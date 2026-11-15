@@ -152,10 +152,7 @@ func main() {
 	if dbfile != "" {
 		opendb(dbfile)
 	}
-	if smoketest {
-		return
-	}
-	if err := main2(tools); err != nil {
+	if err := main2(tools, smoketest); err != nil {
 		if !errors.Is(err, ErrConfig) {
 			slog.Error("fatal", "err", err)
 		} else {
@@ -178,7 +175,7 @@ var (
 	cancelchan = make(chan os.Signal, 10)
 )
 
-func main2(tools mllm.Tools) error {
+func main2(tools mllm.Tools, smoketest bool) error {
 	if global.gdb != nil {
 		defer closedb()
 	}
@@ -202,8 +199,7 @@ func main2(tools mllm.Tools) error {
 	fmt.Println()
 	toolnames := getnames(tools)
 	fmt.Println("tools available:", toolnames)
-	_, _ = os.Stdin.Read([]byte{0})
-	if !mllm.Quiet {
+	if !smoketest && !mllm.Quiet {
 		// log stuff
 		logfilename := "/tmp/orchard.json.log"
 		logfile, err := os.OpenFile(logfilename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o600)
@@ -211,8 +207,16 @@ func main2(tools mllm.Tools) error {
 			log.Printf("fatal: %v", err)
 		}
 		defer func() {
-			_ = logfile.Close()
-			println("closed log file", logfilename)
+			slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+				AddSource: true,
+				Level:     sloglvl,
+			})))
+			closedb()
+			if err := logfile.Close(); err != nil {
+				println("closing log file", "err", err.Error(), "name", logfilename)
+			} else {
+				println("closed log file", logfilename)
+			}
 		}()
 		slog.SetDefault(slog.New(slog.NewJSONHandler(logfile, &slog.HandlerOptions{
 			AddSource: true,
@@ -222,7 +226,6 @@ func main2(tools mllm.Tools) error {
 	}
 	p := tea.NewProgram(initialModel(ocfg), tea.WithoutSignalHandler())
 	global.SendFunc = p.Send // does block
-	signal.Notify(cancelchan, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
 	go func() {
 		x := 0
 		var t1 time.Time
@@ -240,6 +243,11 @@ func main2(tools mllm.Tools) error {
 			go global.SendFunc(sig) // still sending the signal for ui to cancel
 		}
 	}()
+	if smoketest {
+		return nil
+	}
+	_, _ = os.Stdin.Read([]byte{0})
+	signal.Notify(cancelchan, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("%w", err)
 	}
