@@ -95,11 +95,15 @@ func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 	return tools, nil
 }
 
+var sloglvl = new(slog.LevelVar)
+
 func main() {
 	mllm.DefaultWriter = io.Discard
 	wd, _ := os.Getwd()
 	mllm.DefaultOptions.Debug = 0
 	mllm.Flags()
+	orchard.Flags(sloglvl)
+	sloglvl.Set(slog.LevelDebug)
 	var dbfile string
 	var smoketest bool
 	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence. in-memory usage: \"file::memory:?cache=shared\")")
@@ -198,9 +202,7 @@ func main2(tools mllm.Tools) error {
 	fmt.Println()
 	toolnames := getnames(tools)
 	fmt.Println("tools available:", toolnames)
-	fmt.Println()
 	_, _ = os.Stdin.Read([]byte{0})
-
 	if !mllm.Quiet {
 		// log stuff
 		logfilename := "/tmp/orchard.json.log"
