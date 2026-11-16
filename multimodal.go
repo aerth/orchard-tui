@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log/slog"
 	"os"
+	"time"
 
 	"github.com/aerth/mostly/mllm"
 	"github.com/aerth/mostly/stackerr"
@@ -14,17 +16,33 @@ import (
 func AttachImages(v string, m *mllm.Message) error {
 	paths := rege.FindImagePaths(v)
 	if len(paths) == 0 {
+		slog.Debug("no images found")
 		return nil
 	}
-	var images [][]byte
+	return AttachImagesPaths(paths, m)
+}
+
+func AttachImagesPaths(paths []string, m *mllm.Message) error {
 	for _, v := range paths {
 		b, err := os.ReadFile(v)
 		if err != nil {
-			return stackerr.Errorf("read image file for attachment: %v", err) // TODO: might be foo.png false positive
+			go global.SendFunc(stackerr.Errorf("%w", err))
+			//return stackerr.Errorf("read image file for attachment: %v", err) // TODO: might be foo.png false positive
 		}
-		images = append(images, b)
+		m.Images = append(m.Images, b)
+		slog.Info("found image")
+		time.Sleep(time.Second)
 
 	}
-	m.Images = images
 	return nil
+}
+
+func (m *model) addPendingImage(name string) {
+	_, err := os.Stat(name)
+	if err != nil {
+		m.WithError(err)
+		return
+	}
+	m.pendingAttachImages = append(m.pendingAttachImages, name)
+	m.WithMessage("Attached image for next message")
 }
