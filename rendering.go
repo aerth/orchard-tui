@@ -26,7 +26,7 @@ var mdrend = tuilite.NewRenderer(80)
 
 func FormatMessage(cm mllm.ChatMessage) string {
 	x := formatMessage(cm)
-	y, z := mdrend.Render(x, 0)
+	y, z := mdrend.Render(x, tuilite.StyleB)
 	if z != nil {
 		slog.Error("markdown", "err", z)
 		return x
