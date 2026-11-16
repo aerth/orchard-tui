@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 	"uuid"
 
 	"github.com/aerth/mostly/mllm"
+	"github.com/aerth/mostly/stackerr"
 )
 
 // PendingStreamTUI collects the streaming llm response, periodically (quickly) sending to UI thread
@@ -73,15 +73,15 @@ func (p *PendingStreamTUI) bghandle(cr mllm.ChatResponse) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.cur == nil {
-		return fmt.Errorf("PreText failed")
+		return stackerr.Errorf("PreText failed")
 	}
 	if p.cr.Done { // was previous turn
 		slog.Error("previous was not blanked", "m", p.cr.Message)
 		p.cr = mllm.ChatResponse{}
 	}
 	if err := p.cr.Handler(cr); err != nil {
-		go global.SendFunc(fmt.Errorf("cr.Handler %w %#v", err, cr))
-		return err
+		go global.SendFunc(stackerr.Errorf("cr.Handler %w %#v", err, cr))
+		return stackerr.Errorf("%w", err)
 	}
 	p.cur.Message = p.cr.Message // since p.cur is a different..
 	if cr.Done || time.Since(global.lastsent) > global.Refresh {
