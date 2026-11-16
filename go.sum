@@ -10,8 +10,8 @@ github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
 github.com/aerth/mostly v0.4.11 h1:RiEXqiIZkAzYeAJyCiJyiyzL0QnDY56fOkCOv9UB8pw=
 github.com/aerth/mostly v0.4.11/go.mod h1:F/ReOCMJ6HqxQ+Yx1GRGMHYBw3PshSSDr+CP4Yb5kns=
-github.com/aerth/orchard v0.0.11 h1:S83Ic8Chkgp/CS7wesZZo23udE4mULBWSC25donFnEE=
-github.com/aerth/orchard v0.0.11/go.mod h1:Jl0kLcE9EhIwKC3Dr+u4MlvxHFx3zd70bHxpP4ShKvg=
+github.com/aerth/orchard v0.0.12 h1:7o8ttw3l5xnWaDtpPA7R94j7vfuN+OdGVGPL/oRg5CI=
+github.com/aerth/orchard v0.0.12/go.mod h1:2DlWQ+QCZz6P985AJ9EYbN2Sn/GYNhQmtMV145pgL84=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
 github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
 github.com/alecthomas/chroma/v2 v2.27.0 h1:FodwmyOBgJULFYmDqibcp9pvfDLWdtPRh9v/r5BXYZs=
