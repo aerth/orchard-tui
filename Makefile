@@ -26,6 +26,7 @@ docker:
 	test ! -d tmp/otools || git -C tmp/otools pull origin master
 	test -d tmp/otools/.git || git clone https://github.com/aerth/orchard-tools tmp/otools
 	docker build --network=host -t orchard:tui .
+	mkdir -p tmp/data
 	@echo built container
 	@test -f ~/.config/orchard/env || echo create ~/.config/orchard/env file to run quick docker test
 	@test ! -f ~/.config/orchard/env || echo docker run --network=host \
