@@ -12,6 +12,14 @@ import (
 	"github.com/aerth/mostly/mllm"
 )
 
+func (m *model) addNewM(msg mllm.ChatMessage) {
+	m.convo = append(m.convo, msg)
+	m.renderConvo(false)
+	if m.Stickybottom {
+		m.viewport.GotoBottom()
+	}
+}
+
 func (m *model) addNewMessage(role string, content string) {
 	msg := *mllm.Message{
 		Role:    role,
@@ -21,22 +29,25 @@ func (m *model) addNewMessage(role string, content string) {
 		msg.Content = ""
 		msg.Aux = content
 	}
-	m.convo = append(m.convo, msg)
-
-	m.renderConvo(false)
-	if m.Stickybottom {
-		m.viewport.GotoBottom()
-	}
+	m.addNewM(msg)
 }
 
 func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
-	shell, isShell := strings.CutPrefix(s, "!")
 	cmd, isCmd := strings.CutPrefix(s, "/")
+	var isShell bool
+	if shell, isShell1 := strings.CutPrefix(s, "!"); isShell1 {
+		cmd = shell
+		isShell = isShell1
+	}
 	if !isShell && !isCmd {
 		return *m, nil
 	}
+	args := strings.Fields(cmd)
+	if isShell && args[0] == "cd" { // prevent misleading successful "!cd" exit code
+		isShell = false
+	}
 	if isShell {
-		c := exec.CommandContext(context.TODO(), "bash", "-c", shell)
+		c := exec.CommandContext(context.TODO(), "bash", "-c", cmd)
 		out, err := c.CombinedOutput()
 		output := strings.TrimSpace(string(out))
 		if output == "" {
@@ -49,15 +60,17 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 		if err != nil {
 			output += "Error: " + err.Error()
 		}
-		content := fmt.Sprintf("Bash executed: %s\nExit Code %d\nOutput: %s\n", shell, exitcode, output)
+		content := fmt.Sprintf("Bash executed: %s\nExit Code %d\nOutput: %s\n", cmd, exitcode, output)
 		m.addNewMessage("user", content)
 		return m, nil
 
 	}
-	args := strings.Fields(cmd)
 	switch args[0] {
 	case "help":
 		m.addNewMessage("", "# Help\n"+helpflags+"\n\n"+helpslash)
+		return m, nil
+	case "attach":
+		m.addPendingImage(args[1])
 		return m, nil
 	case "undo":
 		n := 1
