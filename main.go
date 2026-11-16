@@ -29,6 +29,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/aerth/mostly/godotenv"
 	"github.com/aerth/mostly/mllm"
+	"github.com/aerth/mostly/ncode"
 	"github.com/aerth/mostly/stackerr"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
@@ -45,6 +46,10 @@ type (
 		Done bool
 	}
 )
+
+var programOptions = []tea.ProgramOption{
+	tea.WithoutSignalHandler(),
+}
 
 var global = struct {
 	gdbx gorm.CreateInterface[mllm.ChatMessage] // for [orchard.Config.DB]
@@ -224,7 +229,7 @@ func main2(tools mllm.Tools, smoketest bool) error {
 		})))
 		slog.Info("Hello Orchard")
 	}
-	p := tea.NewProgram(initialModel(ocfg), tea.WithoutSignalHandler())
+	p := tea.NewProgram(initialModel(ocfg), programOptions...)
 	global.SendFunc = p.Send // does block
 	go func() {
 		x := 0
@@ -262,10 +267,19 @@ func startupcheck(client orchard.Config, w io.Writer) error {
 	client.Writer = w
 	s, err := client.SystemPrompt()
 	if err != nil {
-		return err
+		return stackerr.Errorf("%w", err)
 	}
-	_, err = client.Generate(ctx, s, "Create a short greeting for the user, as a robot from a different solar system. In it, the user should be told to press ENTER to begin using the Orchard AI Agent system. Markdown OK.", false)
-	return err
+	if len(s) == 0 {
+		return stackerr.Errorf("no prompt template")
+	}
+	_, err = client.Generate(ctx, s,
+		"Create a short greeting for the user, as a robot from a different solar system. "+
+			"In it, the user should be told to press the ENTER key "+
+			"to begin using the Orchard AI Agent system. Markdown OK.", false)
+	if err != nil {
+		return stackerr.Errorf("%w", err)
+	}
+	return nil
 }
 
 type model struct {
@@ -282,6 +296,12 @@ type model struct {
 
 	senderStyle, warningStyle, errorStyle lipgloss.Style
 	Stickybottom                          bool
+
+	// state
+
+	pendingAttachImages []string
+	mostRecentRequest   mllm.ChatRequest
+	mostRecentResponse  mllm.ChatResponse
 }
 
 // View see [model.Update] [model.Init]
@@ -289,7 +309,13 @@ func (m model) View() tea.View {
 	m.viewport.FillHeight = false
 	viewportView := m.viewport.View()
 	//slog.Info("viewport", "size", len(viewportView))
-	v := tea.NewView(viewportView + "\n" + m.textarea.View())
+	var v tea.View
+	switch m.page {
+	case 2:
+		v.Content = viewportView
+	default:
+		v.Content = viewportView + "\n" + m.textarea.View()
+	}
 	c := m.textarea.Cursor()
 	if c != nil {
 		c.Y += lipgloss.Height(viewportView)
@@ -297,6 +323,7 @@ func (m model) View() tea.View {
 	v.Cursor = c
 	v.AltScreen = false
 	v.WindowTitle = "Orchard AI"
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 
@@ -334,6 +361,16 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		slog.Info("welcome thread", "id", mllm.DefaultThread)
 	}
 	var convo mllm.ChatMessages
+	ocfg.PreRequest = func(request *mllm.ChatRequest) error {
+		if request == nil {
+			return nil
+		}
+		var req mllm.ChatRequest = *request
+		req.Messages = slices.Clone(req.Messages)
+		// TODO copy ChatRequest
+		go global.SendFunc(req) // for the "most recent request" view
+		return nil
+	}
 
 	// add previous convo to view
 	if ocfg.DB != nil {
@@ -374,10 +411,10 @@ func initialModel(ocfg orchard.Config) tea.Model {
 }
 
 var pages = []string{
-	0: "home",
+	// 0: "home",
 	1: "chat",
-	2: "config",
-	3: "log",
+	2: "recent request",
+	3: "recent response",
 }
 
 func (m *model) renderConvo(full bool) {
@@ -423,6 +460,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case os.Signal:
 		slog.Info("signal received:", "sig", msg)
 		global.cancelGen()
+		return m, nil
+	case mllm.ChatResponse: // for debug page
+		m.mostRecentResponse = msg
+		return m, nil
+	case mllm.ChatRequest: // for debug page
+		m.mostRecentRequest = msg
 		return m, nil
 	case string:
 		return m.WithMessage(msg), nil
@@ -479,6 +522,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg: // keybinds
 		key := msg.String()
 		switch key {
+		case "ctrl+1":
+			m.page = 1
+			m.syncpage()
+			return m, nil
+		case "ctrl+2":
+			m.page = 2
+			m.syncpage()
+			return m, nil
+		case "ctrl+3":
+			m.page = 3
+			m.syncpage()
 		case "ctrl+c", "esc":
 			cancelchan <- syscall.SIGINT
 			return m.WithMessage("Cancelled (press a few more times to quit)"), nil
@@ -497,10 +551,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				mdrend = tuilite.NewRenderer(m.viewport.Width())
 			}
-			m.renderConvo(true)
-			if m.Stickybottom {
-				m.viewport.GotoBottom()
-			}
+			m.syncpage()
 			return m, nil
 		case "down", "pgdown", "end":
 			if key == "end" {
@@ -531,7 +582,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if strings.TrimSpace(val) == "" {
 				return m, nil
 			}
-			if val[0] == '/' || val[0] == '!' {
+			if val[0] == '/' || val[0] == '!' || isCommandWord(val) {
 				m.textarea.Reset()
 				return m.SlashCommandHandler(val)
 			}
@@ -540,6 +591,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ToThreadMessage(m.userName, m.threadID)
 			if err := AttachImages(val, &usermsg.Message); err != nil {
 				return m.WithError(err), nil
+			}
+			if len(m.pendingAttachImages) != 0 {
+				if err := AttachImagesPaths(m.pendingAttachImages, &usermsg.Message); err != nil {
+					return m.WithError(err), nil
+				}
+				m.pendingAttachImages = nil
 			}
 			m.convo = append(m.convo, *usermsg)
 			m.renderConvo(false)
@@ -554,6 +611,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		default:
+			slog.Info("weird button", "m", msg.String())
 			if !m.textarea.Focused() { // home page
 				m.textarea.Focus()
 				return m, nil
@@ -574,6 +632,70 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func isCommandWord(val string) bool {
+	for arg := range strings.FieldsSeq(val) {
+		switch arg {
+		case "help", "exit":
+			return true
+		}
+	}
+	return false
+}
+
+func (m *model) gotoPage1() {
+	m.renderConvo(true)
+	if m.Stickybottom {
+		m.viewport.GotoBottom()
+	}
+}
+
+func (m *model) syncpage() {
+	switch m.page {
+	case 1:
+		m.gotoPage1()
+	case 2:
+		m.gotoPage2()
+	case 3:
+		m.gotoPage3()
+	}
+}
+
+func (m *model) gotoPage2() {
+	js := string(ncode.JSONIndent(m.mostRecentRequest))
+	md := "```json\n" + js + "\n```\n"
+	md += fmt.Sprintf("\n(%d messages)\n", len(m.mostRecentRequest.Messages))
+	md += fmt.Sprintf("\n(%d tokens)\n", m.mostRecentResponse.Stats.TotalTokens)
+
+	r, err := mdrend.Render(md, tuilite.StyleB)
+	if err != nil {
+		slog.Error("rend", "err", err)
+	} else {
+		md = r
+	}
+	m.viewport.SetContent(md)
+	if m.Stickybottom {
+		m.viewport.GotoBottom()
+	}
+}
+
+func (m *model) gotoPage3() {
+	js := string(ncode.JSONIndent(m.mostRecentResponse))
+	md := "```json\n" + js + "\n```\n"
+	md += fmt.Sprintf("\n(%d chars)\n", len(m.mostRecentResponse.Message.Content))
+	md += fmt.Sprintf("\n(%d tokens)\n", m.mostRecentResponse.Stats.TotalTokens)
+
+	r, err := mdrend.Render(md, tuilite.StyleB)
+	if err != nil {
+		slog.Error("rend", "err", err)
+	} else {
+		md = r
+	}
+	m.viewport.SetContent(md)
+	if m.Stickybottom {
+		m.viewport.GotoBottom()
+	}
+}
+
 func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessages, pending *PendingStreamTUI) {
 	global.cancelGen() // one gen at a time
 	if len(actualconvo) == 0 || actualconvo[0].Role == "" {
@@ -582,7 +704,7 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 		return
 	}
 	ctx, global.cancelGen = context.WithCancel(ctx)
-	slog.Info("starting", "size_convo", len(actualconvo), "top", actualconvo.Top(), "db", e.DB != nil)
+	slog.Info("starting", "size_convo", len(actualconvo), "top", actualconvo.Top().Message, "db", e.DB != nil)
 	if e.DB == nil {
 		e.ThreadReader = func(ctx context.Context, threadID uuid.UUID) (mllm.ChatMessages, error) {
 			return actualconvo, nil
@@ -600,7 +722,20 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 		go global.SendFunc(warning("Using default tools..."))
 		e.Toolbox = orchard.AllTools
 	}
-	e.Handlers = append(e.Handlers, pending.bghandle)
+
+	var collector mllm.ChatResponse
+	e.Handlers = append(e.Handlers, pending.bghandle, func(cr mllm.ChatResponse) error {
+		if collector.Done {
+			collector = mllm.ChatResponse{}
+		}
+		if err := collector.Handler(cr); err != nil {
+			return err
+		}
+		if cr.Done {
+			global.SendFunc(collector)
+		}
+		return nil
+	})
 
 	// orchard hooks
 	e.PreTextHook = pending.PreText
