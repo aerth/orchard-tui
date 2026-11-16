@@ -33,6 +33,7 @@ import (
 	"github.com/aerth/mostly/stackerr"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
+	"github.com/aerth/orchard-tui/pkg/visions"
 	"github.com/aerth/orchard/pkg/builtintools"
 	"github.com/aerth/orchard/pkg/toolboxes"
 	"gorm.io/gorm"
@@ -130,6 +131,22 @@ func main() {
 		return nil
 	})
 	flag.Parse()
+
+	// load missing env
+	envfile := os.ExpandEnv("${HOME}/.config/orchard/env")
+	if _, err := os.Stat(envfile); err != nil {
+		envfile = os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env")
+		if _, err = os.Stat(envfile); err != nil {
+			envfile = ""
+		}
+	}
+	if envfile != "" {
+		if err := godotenv.Load(envfile); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Fatalf("dot env: %+v", err)
+			}
+		}
+	}
 	if cwd, _ := os.Getwd(); wd != "" && cwd != wd {
 		if err := os.Chdir(wd); err != nil {
 			log.Fatalf("chdir: %+v", err)
@@ -138,7 +155,6 @@ func main() {
 	if mllm.DefaultThread == uuid.Nil() {
 		mllm.DefaultThread = mllm.ThreadHasher(wd) // use hash(currentdir) as thread uuid
 	}
-	_ = godotenv.Load(os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env"))
 	if s := os.Getenv("ORCHARD_DB"); s != "" && dbfile == "" {
 		dbfile = tilde(s)
 		if _, err := os.Stat(dbfile); errors.Is(err, os.ErrNotExist) {
@@ -230,6 +246,9 @@ func main2(tools mllm.Tools, smoketest bool) error {
 		slog.Info("Hello Orchard")
 	}
 	p := tea.NewProgram(initialModel(ocfg), programOptions...)
+	if p == nil {
+		return fmt.Errorf("could not make tea program")
+	}
 	global.SendFunc = p.Send // does block
 	go func() {
 		x := 0
@@ -589,11 +608,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			usermsg := mllm.Message{Role: "user", Content: val}.
 				ToThreadMessage(m.userName, m.threadID)
-			if err := AttachImages(val, &usermsg.Message); err != nil {
+			if err := visions.AttachImages(val, &usermsg.Message); err != nil {
 				return m.WithError(err), nil
 			}
 			if len(m.pendingAttachImages) != 0 {
-				if err := AttachImagesPaths(m.pendingAttachImages, &usermsg.Message); err != nil {
+				if err := visions.AttachImagesPaths(m.pendingAttachImages, &usermsg.Message); err != nil {
 					return m.WithError(err), nil
 				}
 				m.pendingAttachImages = nil
