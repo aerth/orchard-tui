@@ -1,9 +1,23 @@
+  -C value
+    	switch directory first
   -change-dir string
     	change directory before anything (default "/home/username/src/orchard-tui")
   -db string
     	path to sqlite db file (optional, for persistence. in-memory usage: "file::memory:?cache=shared")
+  -guardian-allow value
+    	additional text to help bash guardian identify allowed commands, may be used multiple times
+  -hide-think
+    	hide thinking when thinking is enabled
+  -hide-tools
+    	hide tools, not recommended. prefer redirecting stderr
   -host string
     	host URL ONLY if no env var
+  -limit-history int
+    	limit history (convo) given to llm (default 20)
+  -limit-rounds int
+    	limit rounds (turns) in the loop (-1 infinite) (default -1)
+  -log-level value
+    	debug,info,warn,error
   -model string
     	model ONLY if no env var
   -no-bash
@@ -13,6 +27,8 @@
     	say hello and exit (no tools)
   -temperature float
     	temperature (default 1)
+  -think value
+    	think value, such as 'low' or 'none', this is **not checked** before sending to llm
   -thread value
     	thread ID (if applicable)
   -v	enable log
