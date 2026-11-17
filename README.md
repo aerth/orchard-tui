@@ -40,6 +40,10 @@ Use `-h` to show command-line flag usage, and from the chat you can use `/help` 
 
 Attach images to the conversation with `[./path/to/image.png]` with path in brackets.
 
+To limit the tools available easily, run with `-tool [name]` flag.
+
+To require confirmation on a certain tool, run with `--require-confirm [name]`. Both of these flags can be repeated or given a comma-separated-list of tool names.
+
 ### Configuration 
 
 Instead of always using flags and export env to run `orchard-tui`, consider a `~/.config/orchard/env` file.

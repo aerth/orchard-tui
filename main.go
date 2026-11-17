@@ -103,17 +103,16 @@ func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 
 var sloglvl = new(slog.LevelVar)
 
-func main() {
-	mllm.DefaultWriter = io.Discard
-	wd, _ := os.Getwd()
-	mllm.DefaultOptions.Debug = 0
+func Flags(dbfile, wd *string, smoketest *bool) {
 	mllm.Flags()
 	orchard.Flags(sloglvl)
-	sloglvl.Set(slog.LevelDebug)
-	var dbfile string
-	var smoketest bool
-	flag.StringVar(&dbfile, "db", dbfile, "path to sqlite db file (optional, for persistence. in-memory usage: \"file::memory:?cache=shared\")")
-	flag.StringVar(&wd, "change-dir", wd, "change directory before anything")
+
+	if dbfile != nil {
+		flag.StringVar(dbfile, "db", *dbfile, "path to sqlite db file (optional, for persistence. in-memory usage: \"file::memory:?cache=shared\")")
+	}
+	if wd != nil {
+		flag.StringVar(wd, "change-dir", *wd, "change directory before anything")
+	}
 	//flag.BoolVar(&addbash, "bash", addbash, "add the default bash tool even when using toolbox tools")
 	flag.Func("guardian-allow", "additional text to help bash guardian identify allowed commands, may be used multiple times", func(s string) error {
 		builtintools.AddGuardPrompt(s)
@@ -123,15 +122,37 @@ func main() {
 		orchard.AllTools = nil
 		return nil
 	})
-	flag.BoolVar(&smoketest, "smoke", smoketest, "say hello and exit (no tools)")
+	if smoketest != nil {
+		flag.BoolVar(smoketest, "smoke", *smoketest, "say hello, list tools available, and exit (no tool calling)")
+	}
 	flag.BoolFunc("version", "show version info", func(s string) error {
 		fmt.Println(version)
 		fmt.Println(gitcommit)
 		os.Exit(1)
 		return nil
 	})
-	flag.Parse()
+	flag.Func("tool", "add one or comma/space-separated list of tools to be allowed. may be used multiple times.", func(toolName string) error {
+		toolName = strings.ReplaceAll(toolName, ",", " ")
+		approvals.allowedToolNames = append(approvals.allowedToolNames, strings.Fields(toolName)...)
+		return nil
+	})
+	flag.Func("require-confirm", "add one or comma/space-separated list of tools to be allowed but confirmation is needed. may be used multiple times.", func(toolName string) error {
+		toolName = strings.ReplaceAll(toolName, ",", " ")
+		approvals.allowedToolNames = append(approvals.allowedToolNames, strings.Fields(toolName)...)
+		approvals.needsApprovals = append(approvals.needsApprovals, strings.Fields(toolName)...)
+		return nil
+	})
+}
 
+func main() {
+	mllm.DefaultWriter = io.Discard
+	wd, _ := os.Getwd()
+	mllm.DefaultOptions.Debug = 0
+	sloglvl.Set(slog.LevelDebug)
+	var dbfile string
+	var smoketest bool
+	Flags(&dbfile, &wd, &smoketest)
+	flag.Parse()
 	// load missing env
 	envfile := os.ExpandEnv("${HOME}/.config/orchard/env")
 	if _, err := os.Stat(envfile); err != nil {
@@ -170,6 +191,7 @@ func main() {
 			return
 		}
 	}
+	tools = slices.DeleteFunc(tools, IsNotAllowedTool)
 	if dbfile != "" {
 		opendb(dbfile)
 	}
@@ -197,9 +219,6 @@ var (
 )
 
 func main2(tools mllm.Tools, smoketest bool) error {
-	if global.gdb != nil {
-		defer closedb()
-	}
 	ocfg := orchard.Config{
 		E:            mllm.Default(),
 		Think:        false,
@@ -215,6 +234,7 @@ func main2(tools mllm.Tools, smoketest bool) error {
 	fmt.Println()
 	if err := startupcheck(ocfg, os.Stdout); err != nil {
 		fmt.Println("Fatal:", strings.ReplaceAll(err.Error(), "\n", " "))
+		closedb()
 		return ErrConfig
 	}
 	fmt.Println()
@@ -244,6 +264,8 @@ func main2(tools mllm.Tools, smoketest bool) error {
 			Level:     slog.LevelDebug,
 		})))
 		slog.Info("Hello Orchard")
+	} else {
+		defer closedb()
 	}
 	p := tea.NewProgram(initialModel(ocfg), programOptions...)
 	if p == nil {
@@ -292,7 +314,7 @@ func startupcheck(client orchard.Config, w io.Writer) error {
 		return stackerr.Errorf("no prompt template")
 	}
 	_, err = client.Generate(ctx, s,
-		"Create a short greeting for the user, as a robot from a different solar system. "+
+		"Create a (very) short greeting for the user, as a robot from a different solar system. "+
 			"In it, the user should be told to press the ENTER key "+
 			"to begin using the Orchard AI Agent system. Markdown OK. No filler text, your output will be used directly.", false)
 	if err != nil {
@@ -313,8 +335,7 @@ type model struct {
 	threadID uuid.UUID
 	userName string // bob
 
-	senderStyle, warningStyle, errorStyle lipgloss.Style
-	Stickybottom                          bool
+	Stickybottom bool
 
 	// state
 
@@ -414,15 +435,12 @@ func initialModel(ocfg orchard.Config) tea.Model {
 	x := model{
 		textarea:     ta,
 		viewport:     vp,
-		senderStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-		errorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
-		warningStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
 		err:          nil,
 		userName:     "Bob",
 		page:         1, // home page
 		threadID:     mllm.DefaultThread,
 		ocfg:         ocfg,
-		messages:     renderConvoSlice(convo),
+		messages:     renderConvoSlice(convo, formatMessage),
 		convo:        convo,
 		Stickybottom: true,
 	}
@@ -441,12 +459,16 @@ func (m *model) renderConvo(full bool) {
 	if len(m.convo) == 0 {
 		return
 	}
+	rfn := formatMessage
+	if mdrend == nil {
+		rfn = FormatMessageRaw
+	}
 	if full {
-		m.messages = renderConvoSlice(m.convo)
+		m.messages = renderConvoSlice(m.convo, rfn)
 	} else {
 		l := len(m.messages)
 		add := len(m.convo) > l
-		a := renderConvoSlice(m.convo[l-1:])
+		a := renderConvoSlice(m.convo[l-1:], rfn)
 		if !add {
 			copy(m.messages[l-1:], a[:])
 		} else {
@@ -487,7 +509,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mostRecentRequest = msg
 		return m, nil
 	case string:
-		return m.WithMessage(msg), nil
+		return m.WithTextMessage(msg), nil
 	case error:
 		return m.WithError(msg), nil
 	case tea.PasteStartMsg:
@@ -554,7 +576,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.syncpage()
 		case "ctrl+c", "esc":
 			cancelchan <- syscall.SIGINT
-			return m.WithMessage("Cancelled (press a few more times to quit)"), nil
+			return m.WithTextMessage("Cancelled (press a few more times to quit)"), nil
 		case "ctrl+q":
 			global.cancelGen()
 			// fmt.Println(m.textarea.Value()) // if [tea.View.AltScreen] is on
@@ -761,6 +783,31 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 
 	// orchard hooks
 	e.PreTextHook = pending.PreText
+	e.PreToolHook = func(ctx context.Context, name string, args map[string]any) error {
+		if len(approvals.allowedToolNames) != 0 && !slices.Contains(approvals.allowedToolNames, name) {
+			return fmt.Errorf("tool never existed")
+		}
+		if slices.Contains(approvals.needsApprovals, name) {
+			req := createRequest("Tool run: " + name)
+			go global.SendFunc("You must `/approve` or `/deny` the request:\n" + req.UUID.String())
+		waiting:
+			for !isResolved(req.UUID) {
+				select {
+				case <-ctx.Done():
+					return context.Cause(ctx)
+				case <-time.After(time.Second):
+					if isResolved(req.UUID) {
+						break waiting
+					}
+					slog.Warn("waiting for approval or disapproval", "id", req.UUID.String())
+				}
+			}
+			if !getResolved(req.UUID).Approved {
+				return fmt.Errorf("that tool call was denied") // TODO: more info, AND hook error that allows continue orchard loop
+			}
+		}
+		return nil
+	}
 	e.NonTextHook = pending.NonText
 	e.FinishHook = pending.Finish
 

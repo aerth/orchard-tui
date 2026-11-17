@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"uuid"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/aerth/mostly/mllm"
@@ -60,7 +61,7 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 		if err != nil {
 			output += "Error: " + err.Error()
 		}
-		content := fmt.Sprintf("Bash executed: %s\nExit Code %d\nOutput: %s\n", cmd, exitcode, output)
+		content := fmt.Sprintf("Bash executed: %s\nExit Code %d\nOutput (in code fencing):\n\n```\n%s\n```\n", cmd, exitcode, output)
 		m.addNewMessage("user", content)
 		return m, nil
 
@@ -72,6 +73,21 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 	case "attach":
 		m.addPendingImage(args[1])
 		return m, nil
+	case "approve", "deny":
+		if len(args) != 2 {
+			return m.WithError(fmt.Errorf("need ID to approve")), nil
+		}
+		id, err := uuid.Parse(args[1])
+		if err != nil {
+			return m.WithError(err), nil
+		}
+		return m, func() tea.Msg {
+			if !doApproval("approve slash command", id, args[0] == "approve") {
+				return fmt.Errorf("was not a known pending request")
+			}
+			// send it back to the ui as an approval
+			return Approval{UUID: id, Approved: args[0] == "args", From: "slash"}
+		}
 	case "undo":
 		n := 1
 		if len(args) != 1 {
@@ -91,7 +107,7 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 			m.convo = m.convo[:len(m.convo)-n]
 			m.renderConvo(false)
 		}
-		*m = m.WithMessage(fmt.Sprintf("undid %d messages now have %d", n, len(m.convo)))
+		*m = m.WithTextMessage(fmt.Sprintf("undid %d messages now have %d", n, len(m.convo)))
 		if m.ocfg.DB != nil {
 			ctx := context.TODO()
 			if _, err := m.ocfg.DB.Where("thread = ? AND created_at > ?", m.threadID, m.convo.Top().CreatedAt).Delete(ctx); err != nil {
