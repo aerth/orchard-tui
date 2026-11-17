@@ -632,7 +632,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		default:
-			slog.Info("weird button", "m", msg.String())
+			if s := msg.String(); strings.Count(s, "+") != 0 {
+				slog.Info("weird button", "m", msg.String())
+			}
 			if !m.textarea.Focused() { // home page
 				m.textarea.Focus()
 				return m, nil
