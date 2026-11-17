@@ -33,9 +33,9 @@ import (
 	"github.com/aerth/mostly/stackerr"
 	"github.com/aerth/orchard"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
-	"github.com/aerth/orchard-tui/pkg/visions"
 	"github.com/aerth/orchard/pkg/builtintools"
 	"github.com/aerth/orchard/pkg/toolboxes"
+	"github.com/aerth/orchard/pkg/visions"
 	"gorm.io/gorm"
 )
 
@@ -294,7 +294,7 @@ func startupcheck(client orchard.Config, w io.Writer) error {
 	_, err = client.Generate(ctx, s,
 		"Create a short greeting for the user, as a robot from a different solar system. "+
 			"In it, the user should be told to press the ENTER key "+
-			"to begin using the Orchard AI Agent system. Markdown OK.", false)
+			"to begin using the Orchard AI Agent system. Markdown OK. No filler text, your output will be used directly.", false)
 	if err != nil {
 		return stackerr.Errorf("%w", err)
 	}
