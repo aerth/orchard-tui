@@ -34,7 +34,11 @@ make && make install
 
 Minimally, `LLM_MODEL` and `LLM_HOST` is required. Without `ORCHARD_TOOLS`, a basic shell tool is the only tool available to the model. If `LLM_API_KEY` is present, it is added to Authentication header for each llm request.
 
+When first opened, we do a startup test to make sure we can generate a short greeting. Press ENTER to begin the chat interface, where you can type your demands into the text area.
+
 Use `-h` to show command-line flag usage, and from the chat you can use `/help` to show slash commands and key bindings.
+
+Attach images to the conversation with `[./path/to/image.png]` with path in brackets.
 
 ### Configuration 
 
@@ -76,6 +80,8 @@ orchard-tui
 ## Persistence (conversation history)
 
 When using a database for persistent conversations, we use `$PWD` as thread ID (as if thread flag was `orchard-tui -thread $PWD`) to automatically create a "thread ID" for each project directory. To specify the conversation thread ID, use the `-thread` flag. If thread argument is not a UUID, then it is hashed. This allows for words such as `-thread foo` to make it easy to use new threadID.
+
+Images are not persisted to database.
 
 ## Logs
 
