@@ -2,14 +2,18 @@ package main_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"testing"
 
+	"github.com/aerth/mostly/godotenv"
 	"github.com/aerth/mostly/mllm"
-	"github.com/aerth/orchard-tui/pkg/visions"
+	"github.com/aerth/orchard/pkg/visions"
 )
+
+// vision test here in tui only to be sure it works
 
 func getTestImage(t *testing.T) (imageb []byte) {
 	if _, err := os.Stat("tmp/placeholder.png"); err == nil {
@@ -75,6 +79,10 @@ func TestVisionReply(t *testing.T) {
 	}
 	client := mllm.Default()
 	if err := client.ValidateConfig(nil); err != nil {
+		_ = godotenv.Load()
+		client = mllm.Default()
+	}
+	if err := client.ValidateConfig(nil); err != nil {
 		t.Fatal(err)
 	}
 	ctx := t.Context()
@@ -83,4 +91,31 @@ func TestVisionReply(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = got
+}
+
+func TestVisionJSON(t *testing.T) {
+	imageb := getTestImage(t)
+	msg := mllm.Message{
+		Role:    "user",
+		Content: "what are the objects [./tmp/placeholder.png]",
+	}
+	err := visions.AttachImages(msg.Content, &msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := msg.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var msg2 mllm.Message
+	err = json.Unmarshal(js, &msg2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msg2.Images) != 1 {
+		t.Fatal("not image", len(msg2.Images))
+	}
+	if !bytes.Equal(msg2.Images[0], imageb) {
+		t.Fatal("image modified")
+	}
 }
