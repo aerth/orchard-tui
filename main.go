@@ -623,10 +623,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoBottom()
 			}
 			{
-				go startGen(context.TODO(), m.ocfg, slices.DeleteFunc(slices.Clone(m.convo), RemoveEmpty), &PendingStreamTUI{
-					From:   m.ocfg.From,
-					Thread: m.threadID,
-				})
+				go startGen(context.TODO(), m.ocfg,
+					slices.DeleteFunc(slices.Clone(m.convo), RemoveEmpty),
+					&PendingStreamTUI{
+						From:   m.ocfg.From,
+						Thread: m.threadID,
+					})
 			}
 			return m, nil
 		default:
