@@ -726,11 +726,10 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 	}
 	ctx, global.cancelGen = context.WithCancel(ctx)
 	slog.Info("starting", "size_convo", len(actualconvo), "top", actualconvo.Top().Message, "db", e.DB != nil)
-	if e.DB == nil {
-		e.ThreadReader = func(ctx context.Context, threadID uuid.UUID) (mllm.ChatMessages, error) {
-			return actualconvo, nil
-		}
-	} else {
+	e.ThreadReader = func(ctx context.Context, threadID uuid.UUID) (mllm.ChatMessages, error) {
+		return actualconvo, nil
+	}
+	if e.DB != nil {
 		if err := e.DB.Create(ctx, &actualconvo[len(actualconvo)-1]); err != nil {
 			go global.SendFunc(err)
 			return
