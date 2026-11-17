@@ -67,6 +67,8 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 
 	}
 	switch args[0] {
+	default:
+		return m.withAnyAux(fmt.Errorf("slash-command %q not found", args[0])), nil
 	case "help":
 		m.addNewMessage("", "# Help\n"+helpflags+"\n\n"+helpslash)
 		return m, nil
@@ -81,11 +83,11 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 		if err != nil {
 			return m.WithError(err), nil
 		}
+		// in a goroutine, send it back to the ui as an approval for notification
 		return m, func() tea.Msg {
 			if !doApproval("approve slash command", id, args[0] == "approve") {
 				return fmt.Errorf("was not a known pending request")
 			}
-			// send it back to the ui as an approval
 			return Approval{UUID: id, Approved: args[0] == "args", From: "slash"}
 		}
 	case "undo":
@@ -108,6 +110,7 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 			m.renderConvo(false)
 		}
 		*m = m.WithTextMessage(fmt.Sprintf("undid %d messages now have %d", n, len(m.convo)))
+		*m = m.WithTextMessage(fmt.Sprintf("convo roles: %v", m.convo.TopN(10).Roles()))
 		if m.ocfg.DB != nil {
 			ctx := context.TODO()
 			if _, err := m.ocfg.DB.Where("thread = ? AND created_at > ?", m.threadID, m.convo.Top().CreatedAt).Delete(ctx); err != nil {

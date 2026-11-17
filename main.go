@@ -555,7 +555,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetWidth(msg.Width)
 		m.textarea.SetWidth(msg.Width)
 		m.viewport.SetHeight(msg.Height - m.textarea.Height())
-		mdrend = tuilite.NewRenderer(msg.Width - 4)
+		if mdrend != nil {
+			mdrend = tuilite.NewRenderer(msg.Width - 4)
+		}
 		m.renderConvo(true)
 		if m.Stickybottom {
 			m.viewport.GotoBottom()

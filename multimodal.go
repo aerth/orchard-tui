@@ -9,5 +9,5 @@ func (m *model) addPendingImage(name string) {
 		return
 	}
 	m.pendingAttachImages = append(m.pendingAttachImages, name)
-	m.WithMessage("Attached image for next message")
+	m.WithTextMessage("Attached image for next message")
 }

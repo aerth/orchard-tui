@@ -46,11 +46,14 @@ func SendMessage[T any](msg T) tea.Cmd {
 }
 
 const (
-	StyleA      = 0
-	StyleB      = 1
-	StyleC      = 3
-	StyleHidden = 4
+	StyleA          = 0
+	StyleB          = 1
+	StyleC          = 3
+	StyleHidden     = 4
+	StyleUnrendered = 5
 )
+
+type StyleType = int
 
 func NewRenderer(width int) *MarkdownRenderer {
 	if width == 0 {

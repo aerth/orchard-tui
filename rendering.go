@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"unicode"
 	"uuid"
 
+	"charm.land/lipgloss/v2"
 	"github.com/aerth/mostly/mllm"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
 )
 
-func renderConvoSlice(convo mllm.ChatMessages) []string {
+func renderConvoSlice(convo mllm.ChatMessages, renderfunc FormatterFunc) []string {
 	s := make([]string, len(convo))
 	for i := range convo {
 		// if convo[i].Aux != nil {
@@ -24,8 +26,36 @@ func renderConvoSlice(convo mllm.ChatMessages) []string {
 
 var mdrend = tuilite.NewRenderer(80)
 
+type (
+	FormatterFuncSwitch = func(m mllm.ChatMessage, style tuilite.StyleType) string
+	FormatterFunc       = func(m mllm.ChatMessage) string
+)
+
+func defaultFormatterSwitch(m mllm.ChatMessage, style tuilite.StyleType) string {
+	if style == tuilite.StyleUnrendered {
+		return FormatMessageRaw(m)
+	}
+	return FormatMessage(m)
+}
+
+func FormatMessageRaw(cm mllm.ChatMessage) string {
+	return formatMessage(cm)
+}
+
+func already(v any) bool {
+	switch v.(type) {
+	case error:
+		return true
+	default:
+		return false
+	}
+}
+
 func FormatMessage(cm mllm.ChatMessage) string {
 	x := formatMessage(cm)
+	if already(cm.Aux) {
+		return x
+	}
 	y, z := mdrend.Render(x, tuilite.StyleB)
 	if z != nil {
 		slog.Error("markdown", "err", z)
@@ -34,15 +64,37 @@ func FormatMessage(cm mllm.ChatMessage) string {
 	return y
 }
 
+var styles = struct {
+	senderStyle, warningStyle, errorStyle lipgloss.Style
+}{
+	senderStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
+	errorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
+	warningStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
+}
+
+func formatAux(v any) string {
+	switch aux := v.(type) {
+	case error:
+		latest := styles.errorStyle.Render("Error:") + " " + aux.Error()
+		return latest
+	case string:
+		return aux
+	default:
+		return fmt.Sprint(aux)
+	}
+}
+
 func formatMessage(cm mllm.ChatMessage) string {
 	if cm.Aux != nil {
-		return fmt.Sprint(cm.Aux)
+		return formatAux(cm.Aux)
 	}
 	if cm.IsEmpty() {
 		return ""
 	}
 	if cm.Role != "" && cm.Role != "assistant" {
-		return strings.Title(cm.Role) + ": " + strings.TrimSpace(cm.Content)
+		role := []rune(cm.Role)
+		role[0] = unicode.ToTitle(role[0])
+		return string(role) + ": " + strings.TrimSpace(cm.Content) //nolint: deprecated
 	}
 	if cm.Role == "" {
 		cm.Role = "???"
@@ -59,9 +111,9 @@ func formatMessage(cm mllm.ChatMessage) string {
 	buf.WriteString(cm.Content)
 	buf.WriteString("\n---\n")
 	for i := range cm.ToolCalls {
-		buf.WriteString("tool call: ")
-		buf.WriteString(string(cm.ToolCalls[i])) // is js
-		buf.WriteString("\n---\n")
+		buf.WriteString("tool call:\n```json\n")
+		buf.WriteString(string(cm.ToolCalls[i])) // is js, no newline
+		buf.WriteString("\n```\n---\n")
 	}
 	return buf.String()
 }
@@ -73,11 +125,14 @@ func NewAux(s string, threadID uuid.UUID) *mllm.ChatMessage {
 }
 
 func (m model) WithError(v error) model {
-	latest := m.errorStyle.Render("Error:") + " " + v.Error()
-	return m.WithMessage(latest)
+	return m.withAnyAux(v)
 }
 
-func (m model) WithMessage(v string) model {
+func (m model) WithTextMessage(v string) model {
+	return m.withAnyAux(v)
+}
+
+func (m model) withAnyAux(v any) model {
 	latest := mllm.Message{}.ToThreadMessage("", m.threadID)
 	latest.Aux = v
 	m.convo = append(m.convo, *latest)
