@@ -432,9 +432,13 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		if len(got) != 0 {
 			convo = got
 		}
+		topTime := convo.Top().CreatedAt
 		if top := convo.Top(); top.Role == "user" {
 			ta.InsertString(top.Content)
 			convo = convo[:len(convo)-1]
+		}
+		if len(convo) != 0 {
+			convo = append(convo, *mllm.Message{Role: "user", Content: fmt.Sprintf("The conversation has resumed after %s since the most recent message.", time.Since(topTime).Truncate(time.Second))}.ToThreadMessage("", ocfg.ThreadID))
 		}
 	}
 	if ta.Length() == 0 && len(convo) == 0 {
