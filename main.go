@@ -205,7 +205,7 @@ func main() {
 			return
 		}
 
-		if dirs == "" && len(approvals.allowedToolNames) == 0 || (!slices.Contains(approvals.allowedToolNames, "run_bash")) {
+		if dirs == "" && (len(approvals.allowedToolNames) == 0 || (!slices.Contains(approvals.allowedToolNames, "run_bash"))) {
 			println("no toolboxes configured, shell confirmation will be required for this session. to change this, add explicit flag: --tool run_bash to proceed without confirmations.")
 			time.Sleep(time.Second)
 			// no script tools. assume first-time user and enable confirmation for run_bash
