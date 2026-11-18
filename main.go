@@ -478,7 +478,7 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		page:         1, // home page
 		threadID:     mllm.DefaultThread,
 		ocfg:         ocfg,
-		messages:     renderConvoSlice(convo, formatMessage),
+		messages:     renderConvoSlice(convo, FormatMessageRaw),
 		convo:        convo,
 		Stickybottom: true,
 	}
