@@ -90,8 +90,12 @@ func tilde(s string) string {
 func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 	tools := orchard.AllTools
 	dirs := strings.SplitSeq(dirsfull, ":")
+
 	for dir := range dirs {
 		dir = strings.TrimSpace(dir)
+		if len(dir) == 0 {
+			continue
+		}
 		dir = tilde(dir)
 		box, err := toolboxes.NewToolboxFS(dir)
 		if err != nil {
@@ -99,7 +103,7 @@ func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 		}
 		tools = append(tools, box.AllTools()...)
 	}
-	return tools, nil
+	return slices.DeleteFunc(tools, IsNotAllowedTool), nil
 }
 
 var sloglvl = new(slog.LevelVar)
@@ -192,7 +196,9 @@ func main() {
 		slog.Info("using ORCHARD_DB", "path", dbfile, "from", s)
 	}
 	var tools mllm.Tools
-	if dirs := os.Getenv("ORCHARD_TOOLS"); dirs != "" {
+	{
+
+		dirs := os.Getenv("ORCHARD_TOOLS")
 		var err error
 		if tools, err = toolboxesLoad(dirs); err != nil {
 			slog.Error("load toolboxes", "err", err)
@@ -248,6 +254,17 @@ func main2(tools mllm.Tools, smoketest bool) error {
 	fmt.Println()
 	toolnames := getnames(tools)
 	fmt.Println("tools available:", toolnames)
+	if x := approvals.needsApprovals; len(x) != 0 {
+		fmt.Println("tools requiring confirmation:", x)
+	}
+	if len(tools) != len(toolnames) {
+		slog.Error("weird", "n", len(tools), "n2", len(toolnames))
+		return ErrConfig
+	}
+	if len(tools) == 0 {
+		println("no tools found")
+		return ErrConfig
+	}
 	if !smoketest && !mllm.Quiet {
 		// log stuff
 		logfilename := "/tmp/orchard.json.log"
@@ -772,11 +789,6 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 	}
 
 	// add our [mllm.StreamHandler] to get streamed text to UI
-
-	if len(e.Toolbox) == 0 {
-		go global.SendFunc(warning("Using default tools..."))
-		e.Toolbox = orchard.AllTools
-	}
 
 	var collector mllm.ChatResponse
 	e.Handlers = append(e.Handlers, pending.bghandle, func(cr mllm.ChatResponse) error {

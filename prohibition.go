@@ -56,8 +56,8 @@ var approvals = struct {
 	mu               sync.Mutex
 	pending          map[uuid.UUID]string   // reason
 	approved         map[uuid.UUID]Approval // from, yes/no
-	allowedToolNames []string               // in [Flags]
-	needsApprovals   []string               // tool names, in [startGen]
+	allowedToolNames []string               // in [Flags]. empty = all
+	needsApprovals   []string               // tool names, in [startGen]. empty = none
 }{
 	pending:  map[uuid.UUID]string{},
 	approved: map[uuid.UUID]Approval{},
@@ -74,5 +74,8 @@ func IsNotAllowedToolSpec(v json.RawMessage) bool {
 
 func IsNotAllowedTool(t mllm.Tool) bool {
 	a := approvals.allowedToolNames
-	return len(a) != 0 && !slices.Contains(a, t.GetName())
+	if len(a) == 0 {
+		return false // no restrictions
+	}
+	return !slices.Contains(a, t.GetName())
 }
