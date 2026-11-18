@@ -8,6 +8,9 @@ import (
 )
 
 func ReadRole(s string) (string, error) {
+	if !strings.Contains(s, "/") {
+		s = filepath.Join("roles", s)
+	}
 	if s == "" {
 		return "", nil
 	}
