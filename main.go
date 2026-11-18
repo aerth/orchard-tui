@@ -498,8 +498,8 @@ func (m *model) renderConvo(full bool) {
 		return
 	}
 	rfn := defaultFormatterSwitch
-	if full {
-		m.messages = renderConvoSlice(m.convo, rfn)	} else {
+	if full {		m.messages = renderConvoSlice(m.convo, rfn)
+	} else {
 		l := len(m.messages)
 		// Guard against an empty rendered buffer (e.g. right after "/clear"),
 		// where indexing into the old slice would underflow.
