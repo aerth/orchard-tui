@@ -42,15 +42,6 @@ func FormatMessageRaw(cm mllm.ChatMessage) string {
 	return formatMessage(cm)
 }
 
-func alreadyTermRendered(v any) bool {
-	switch v.(type) {
-	case error:
-		return true
-	default:
-		return false
-	}
-}
-
 func FormatMessage(cm mllm.ChatMessage) string {
 	x := formatMessage(cm)
 	if mdrend == nil || alreadyTermRendered(cm.Aux) {
@@ -70,6 +61,15 @@ var styles = struct {
 	senderStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 	errorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
 	warningStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
+}
+
+func alreadyTermRendered(v any) bool {
+	switch v.(type) {
+	case error:
+		return true
+	default:
+		return false
+	}
 }
 
 func formatAux(v any) string {
