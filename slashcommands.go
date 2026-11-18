@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/aerth/mostly/mllm"
+	"github.com/aerth/orchard-tui/pkg/roles"
 )
 
 func (m *model) addNewM(msg mllm.ChatMessage) {
@@ -90,8 +91,19 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 			}
 			return Approval{UUID: id, Approved: args[0] == "args", From: "slash"}
 		}
+	case "role": // used in [startGen]
+		if len(args) == 1 {
+			return m.WithTextMessage("Current role: " + global.role), nil
+		}
+		_, err := roles.ReadRole(args[1])
+		if err != nil {
+			return m.WithError(err), nil
+		}
+		global.role = args[1]
+		return m.WithTextMessage("Current role: " + global.role), nil
 	case "clear":
 		m.convo = nil
+		m.messages = nil
 		m.renderConvo(true)
 		return m, nil
 

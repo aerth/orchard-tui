@@ -32,6 +32,7 @@ import (
 	"github.com/aerth/mostly/ncode"
 	"github.com/aerth/mostly/stackerr"
 	"github.com/aerth/orchard"
+	"github.com/aerth/orchard-tui/pkg/roles"
 	"github.com/aerth/orchard-tui/pkg/tuilite"
 	"github.com/aerth/orchard/pkg/builtintools"
 	"github.com/aerth/orchard/pkg/toolboxes"
@@ -61,7 +62,8 @@ var global = struct {
 	cancelGen func()        // cancel latest gen, replaced by [startGen]
 	Refresh   time.Duration
 	envFile   string // cmdline flag, may be 'none'
-	role string // to read ./roles/match*.md
+	role      string // to read ./roles/match*.md
+	orchard.Config
 }{
 	cancelGen: func() {},
 	Refresh:   time.Second / 10,
@@ -109,7 +111,7 @@ func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 
 var sloglvl = new(slog.LevelVar)
 
-//  see [global]
+// see [global]
 func Flags(dbfile, wd *string, smoketest *bool) {
 	flag.StringVar(&global.envFile, "e", global.envFile, "use a different env file (or 'none') instead of ~/.config/orchard/env")
 	mllm.Flags()
@@ -498,7 +500,8 @@ func (m *model) renderConvo(full bool) {
 	full = full || len(m.messages) == 0
 	if len(m.convo) == 0 {
 		return
-	}	rfn := defaultFormatterSwitch
+	}
+	rfn := defaultFormatterSwitch
 	if full {
 		m.messages = renderConvoSlice(m.convo, rfn)
 	} else {
@@ -508,11 +511,13 @@ func (m *model) renderConvo(full bool) {
 		if l == 0 {
 			l = len(m.convo)
 		}
-		add := len(m.convo) > l
-		a := renderConvoSlice(m.convo[l:], rfn)
+
+		add := len(m.convo) > l // convo always is bigger or equal to messages
 		if !add {
+			a := renderConvoSlice(m.convo[l:], rfn)
 			copy(m.messages[l:], a[:])
 		} else {
+			a := renderConvoSlice(m.convo[l:], rfn)
 			m.messages = append(m.messages[l:], a...)
 		}
 	}
@@ -848,6 +853,14 @@ func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessag
 	}
 	e.NonTextHook = pending.NonText
 	e.FinishHook = pending.Finish
+	if global.role != "" {
+		role, err := roles.ReadRole(global.role)
+		if err != nil {
+			slog.Error("error streaming", "err", err)
+			go global.SendFunc(err)
+		}
+		e.PromptSuffix = role
+	}
 
 	// orchard ai - multiple rounds, tool calls
 	out, err := orchard.Create(ctx, e)
