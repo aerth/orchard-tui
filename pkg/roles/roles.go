@@ -21,7 +21,7 @@ func ReadRole(s string) (string, error) {
 	if len(matches) != 1 {
 		return "", fmt.Errorf("found %d matches", len(matches))
 	}
-	b, err := os.ReadFile(matches[1])
+	b, err := os.ReadFile(matches[0])
 	if err != nil {
 		return "", err
 	}
