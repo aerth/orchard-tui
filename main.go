@@ -61,6 +61,7 @@ var global = struct {
 	cancelGen func()        // cancel latest gen, replaced by [startGen]
 	Refresh   time.Duration
 	envFile   string // cmdline flag, may be 'none'
+	role string // to read ./roles/match*.md
 }{
 	cancelGen: func() {},
 	Refresh:   time.Second / 10,
