@@ -496,9 +496,9 @@ func (m *model) renderConvo(full bool) {
 	full = full || len(m.messages) == 0
 	if len(m.convo) == 0 {
 		return
-	}
-	rfn := defaultFormatterSwitch
-	if full {		m.messages = renderConvoSlice(m.convo, rfn)
+	}	rfn := defaultFormatterSwitch
+	if full {
+		m.messages = renderConvoSlice(m.convo, rfn)
 	} else {
 		l := len(m.messages)
 		// Guard against an empty rendered buffer (e.g. right after "/clear"),
