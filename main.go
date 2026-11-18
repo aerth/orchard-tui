@@ -60,6 +60,7 @@ var global = struct {
 	SendFunc  func(tea.Msg) // [tea.Program.Send]
 	cancelGen func()        // cancel latest gen, replaced by [startGen]
 	Refresh   time.Duration
+	envFile   string // cmdline flag, may be 'none'
 }{
 	cancelGen: func() {},
 	Refresh:   time.Second / 10,
@@ -104,6 +105,7 @@ func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 var sloglvl = new(slog.LevelVar)
 
 func Flags(dbfile, wd *string, smoketest *bool) {
+	flag.StringVar(&global.envFile, "e", global.envFile, "use a different env file (or 'none') instead of ~/.config/orchard/env")
 	mllm.Flags()
 	orchard.Flags(sloglvl)
 
@@ -154,19 +156,25 @@ func main() {
 	Flags(&dbfile, &wd, &smoketest)
 	flag.Parse()
 	// load missing env
-	envfile := os.ExpandEnv("${HOME}/.config/orchard/env")
-	if _, err := os.Stat(envfile); err != nil {
-		envfile = os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env")
-		if _, err = os.Stat(envfile); err != nil {
-			envfile = ""
+	if global.envFile == "" {
+		envfile := os.ExpandEnv("${XDG_CONFIG_HOME}/orchard/env")
+		if _, err := os.Stat(envfile); err != nil {
+			if x := os.ExpandEnv("${HOME}/.config/orchard/env"); x != envfile {
+				envfile = x
+				if _, err = os.Stat(envfile); err != nil {
+					envfile = ""
+				}
+			}
 		}
+		global.envFile = envfile
 	}
-	if envfile != "" {
-		if err := godotenv.Load(envfile); err != nil {
+	if global.envFile != "" && global.envFile != "none" {
+		if err := godotenv.Load(global.envFile); err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				log.Fatalf("dot env: %+v", err)
 			}
 		}
+		global.envFile = "" // :)
 	}
 	if cwd, _ := os.Getwd(); wd != "" && cwd != wd {
 		if err := os.Chdir(wd); err != nil {
