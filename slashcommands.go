@@ -90,6 +90,11 @@ func (m *model) SlashCommandHandler(s string) (tea.Model, tea.Cmd) {
 			}
 			return Approval{UUID: id, Approved: args[0] == "args", From: "slash"}
 		}
+	case "clear":
+		m.convo = nil
+		m.renderConvo(true)
+		return m, nil
+
 	case "undo":
 		n := 1
 		if len(args) != 1 {
