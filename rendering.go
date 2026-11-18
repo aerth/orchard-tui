@@ -33,13 +33,9 @@ type (
 
 func defaultFormatterSwitch(m mllm.ChatMessage) string {
 	if mdrend == nil {
-		return FormatMessageRaw(m)
+		return formatMessage(m)
 	}
 	return FormatMessage(m)
-}
-
-func FormatMessageRaw(cm mllm.ChatMessage) string {
-	return formatMessage(cm)
 }
 
 func FormatMessage(cm mllm.ChatMessage) string {
