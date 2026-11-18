@@ -467,10 +467,7 @@ func (m *model) renderConvo(full bool) {
 	if len(m.convo) == 0 {
 		return
 	}
-	rfn := formatMessage
-	if mdrend == nil {
-		rfn = FormatMessageRaw
-	}
+	rfn := defaultFormatterSwitch
 	if full {
 		m.messages = renderConvoSlice(m.convo, rfn)
 	} else {

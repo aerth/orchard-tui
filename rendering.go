@@ -27,12 +27,12 @@ func renderConvoSlice(convo mllm.ChatMessages, renderfunc FormatterFunc) []strin
 var mdrend = tuilite.NewRenderer(80)
 
 type (
-	FormatterFuncSwitch = func(m mllm.ChatMessage, style tuilite.StyleType) string
+	FormatterFuncSwitch = func(m mllm.ChatMessage) string
 	FormatterFunc       = func(m mllm.ChatMessage) string
 )
 
-func defaultFormatterSwitch(m mllm.ChatMessage, style tuilite.StyleType) string {
-	if style == tuilite.StyleUnrendered {
+func defaultFormatterSwitch(m mllm.ChatMessage) string {
+	if mdrend == nil {
 		return FormatMessageRaw(m)
 	}
 	return FormatMessage(m)
@@ -42,7 +42,7 @@ func FormatMessageRaw(cm mllm.ChatMessage) string {
 	return formatMessage(cm)
 }
 
-func already(v any) bool {
+func alreadyTermRendered(v any) bool {
 	switch v.(type) {
 	case error:
 		return true
@@ -53,7 +53,7 @@ func already(v any) bool {
 
 func FormatMessage(cm mllm.ChatMessage) string {
 	x := formatMessage(cm)
-	if already(cm.Aux) {
+	if mdrend == nil || alreadyTermRendered(cm.Aux) {
 		return x
 	}
 	y, z := mdrend.Render(x, tuilite.StyleB)
