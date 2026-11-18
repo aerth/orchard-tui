@@ -351,7 +351,7 @@ func startupcheck(client orchard.Config, w io.Writer) error {
 type model struct {
 	viewport viewport.Model
 	messages []string
-	convo    mllm.ChatMessages
+	convo    mllm.ChatMessages // convo is messages. but some are only msg.Aux and no msg.Content,msg.Role.
 	textarea textarea.Model
 	page     int
 

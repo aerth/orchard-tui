@@ -12,9 +12,7 @@ import (
 
 // PendingStreamTUI collects the streaming llm response, periodically (quickly) sending to UI thread
 //
-// Caller must assign NonText, PreText, Finish to [orchard.Config] to work properly.
-//
-// See also: hgr hunter gatherer, which uses a different technique, (ui thread pull from channel)
+// Caller must assign NonText, PreText, [orchard.Config.FinishHook] to [orchard.Config] to work properly.
 type PendingStreamTUI struct {
 	pre  mllm.ChatMessages
 	post mllm.ChatMessages
