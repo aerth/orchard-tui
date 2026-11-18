@@ -499,15 +499,19 @@ func (m *model) renderConvo(full bool) {
 	}
 	rfn := defaultFormatterSwitch
 	if full {
-		m.messages = renderConvoSlice(m.convo, rfn)
-	} else {
+		m.messages = renderConvoSlice(m.convo, rfn)	} else {
 		l := len(m.messages)
+		// Guard against an empty rendered buffer (e.g. right after "/clear"),
+		// where indexing into the old slice would underflow.
+		if l == 0 {
+			l = len(m.convo)
+		}
 		add := len(m.convo) > l
-		a := renderConvoSlice(m.convo[l-1:], rfn)
+		a := renderConvoSlice(m.convo[l:], rfn)
 		if !add {
-			copy(m.messages[l-1:], a[:])
+			copy(m.messages[l:], a[:])
 		} else {
-			m.messages = append(m.messages[:l-1], a...)
+			m.messages = append(m.messages[l:], a...)
 		}
 	}
 	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
