@@ -108,6 +108,7 @@ func toolboxesLoad(dirsfull string) (mllm.Tools, error) {
 
 var sloglvl = new(slog.LevelVar)
 
+//  see [global]
 func Flags(dbfile, wd *string, smoketest *bool) {
 	flag.StringVar(&global.envFile, "e", global.envFile, "use a different env file (or 'none') instead of ~/.config/orchard/env")
 	mllm.Flags()
