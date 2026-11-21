@@ -2,8 +2,14 @@
     	switch directory first
   -change-dir string
     	change directory before anything (default "/home/username/src/orchard-tui")
+  -compact int
+    	auto-compact convo after it grows to n messages (0 disable) (default 20)
+  -compact-toolout-size int
+    	compact all tool outputs that are larger than n characters (0 disable) (default 1000)
   -db string
     	path to sqlite db file (optional, for persistence. in-memory usage: "file::memory:?cache=shared")
+  -e string
+    	use a different env file (or 'none') instead of ~/.config/orchard/env
   -guardian-allow value
     	additional text to help bash guardian identify allowed commands, may be used multiple times
   -hide-think
@@ -23,14 +29,20 @@
   -no-bash
     	remove bash tool, only use toolboxes
   -q	disable log
+  -require-confirm value
+    	add one or comma/space-separated list of tools to be allowed but confirmation is needed. may be used multiple times.
   -smoke
-    	say hello and exit (no tools)
+    	say hello, list tools available, and exit (no tool calling)
   -temperature float
     	temperature (default 1)
   -think value
     	think value, such as 'low' or 'none', this is **not checked** before sending to llm
   -thread value
     	thread ID (if applicable)
+  -tool value
+    	add one or comma/space-separated list of tools to be allowed. may be used multiple times.
+  -toolhook value
+    	add tool hook (can be used multiple times) in format name:command, for example: "apply_patch_id:make lint"
   -v	enable log
   -version
     	show version info

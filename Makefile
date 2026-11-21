@@ -17,10 +17,12 @@ gen: build
 install:
 	install bin/orchard-tui ~/bin/
 genhelpflags:
-	orchard-io <<<"for our TUI, use edit_create to update docs/helpflags.md based on ./flags.txt file. use nice markdown."
+	rm -f docs/helpflags.md
+	ORCHARD_TOOLS=../otools orchard-io <<<"for our TUI, use create_file to update docs/helpflags.md based on ./flags.txt file. use nice markdown."
 genhelpslash:
-	orchard-io <<<"for our TUI, use edit_create to update docs/helpslash.md based on ./slashcommands.go file. use nice markdown."
-genhelp: gen genhelpflags genhelpslash
+	rm -f docs/helpslash.md
+	ORCHARD_TOOLS=../otools orchard-io <<<"for our TUI, use create_file to update docs/helpslash.md based on ./slashcommands.go file. use nice markdown."
+genhelp: genhelpflags genhelpslash
 
 docker:
 	test ! -d tmp/otools || git -C tmp/otools pull origin master
