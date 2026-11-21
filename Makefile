@@ -41,3 +41,7 @@ docker:
 		-a STDIN -a STDOUT -a STDERR \
 		-it \
 		orchard:tui <<<"Tell me about this machine, environment. What programs are installed, etc"
+lint:
+	@! golangci-lint run  | grep -v '^0 issues.$$'
+lintfix:
+	@! golangci-lint run --fix | grep -v '^0 issues.$$'
