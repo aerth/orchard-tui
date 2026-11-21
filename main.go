@@ -66,7 +66,7 @@ var global = struct {
 	orchard.Config
 }{
 	cancelGen: func(error) {},
-	Refresh:   time.Second / 10,
+	Refresh:   time.Second / 3,
 }
 
 var (
@@ -497,7 +497,7 @@ var pages = []string{
 }
 
 func (m *model) renderConvo(full bool) {
-	full = full || len(m.messages) == 0
+	full = full || len(m.messages) != len(m.convo)
 	if len(m.convo) == 0 {
 		m.messages = nil
 		return
@@ -506,21 +506,9 @@ func (m *model) renderConvo(full bool) {
 	if full {
 		m.messages = RenderConvoSlice(m.convo, rfn)
 	} else {
-		l := len(m.messages)
-		// Guard against an empty rendered buffer (e.g. right after "/clear"),
-		// where indexing into the old slice would underflow.
-		if l == 0 {
-			l = len(m.convo)
-		}
-
-		add := len(m.convo) > l // convo always is bigger or equal to messages
-		if !add {
-			a := RenderConvoSlice(m.convo[l:], rfn)
-			copy(m.messages[l:], a[:])
-		} else {
-			a := RenderConvoSlice(m.convo[l:], rfn)
-			m.messages = append(m.messages[l:], a...)
-		}
+		l := len(m.messages) - 1
+		a := RenderConvoSlice(m.convo[l:], rfn)
+		copy(m.messages[l:], a[:])
 	}
 	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
 }
