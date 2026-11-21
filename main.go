@@ -13,6 +13,7 @@ import (
 	"log"
 	"log/slog"
 	"math/rand"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -154,6 +155,19 @@ func Flags(dbfile, wd *string, smoketest *bool) {
 	})
 }
 
+func isLocal(s string) bool {
+	if net.ParseIP(s).String() == s {
+		return true
+	}
+	if strings.Contains(s, ".home.arpa") {
+		return true
+	}
+	if strings.Contains(s, "localhost") {
+		return true
+	}
+	return false
+}
+
 func main() {
 	mllm.DefaultWriter = io.Discard
 	wd, _ := os.Getwd()
@@ -253,6 +267,10 @@ func main2(tools mllm.Tools, smoketest bool) error {
 		DB:           global.gdbx,
 		Toolbox:      tools,
 		PromptSuffix: "We are in a TUI that renders markdown nicely for the user.",
+	}
+	mllm.DefaultKeepAlive = -1
+	if !isLocal(ocfg.Host.Host) {
+		mllm.DefaultKeepAlive = 0
 	}
 	fmt.Println(welcomemodel{}.View().Content)
 	if global.gdbx == nil {

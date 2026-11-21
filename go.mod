@@ -7,7 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/glamour/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.1.1
-	github.com/aerth/mostly v0.4.12
+	github.com/aerth/mostly v0.4.15
 	github.com/aerth/orchard v0.0.18
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
