@@ -59,13 +59,13 @@ var global = struct {
 
 	lastsent  time.Time     // to buffer before sending to UI
 	SendFunc  func(tea.Msg) // [tea.Program.Send]
-	cancelGen func()        // cancel latest gen, replaced by [startGen]
+	cancelGen func(error)   // cancel latest gen, replaced by [startGen]
 	Refresh   time.Duration
 	envFile   string // cmdline flag, may be 'none'
 	role      string // to read ./roles/match*.md
 	orchard.Config
 }{
-	cancelGen: func() {},
+	cancelGen: func(error) {},
 	Refresh:   time.Second / 10,
 }
 
@@ -314,7 +314,7 @@ func main2(tools mllm.Tools, smoketest bool) error {
 		x := 0
 		var t1 time.Time
 		for sig := range cancelchan {
-			global.cancelGen()
+			global.cancelGen(fmt.Errorf("received signal %s", sig.String()))
 			x++
 			slog.Error("got signal", "also", len(cancelchan), "x", x)
 			if time.Since(t1) > time.Second*10 {
@@ -482,7 +482,7 @@ func initialModel(ocfg orchard.Config) tea.Model {
 		page:         1, // home page
 		threadID:     mllm.DefaultThread,
 		ocfg:         ocfg,
-		messages:     renderConvoSlice(convo, FormatMessageRaw),
+		messages:     RenderConvoSlice(convo, FormatMessageRaw),
 		convo:        convo,
 		Stickybottom: true,
 	}
@@ -499,11 +499,12 @@ var pages = []string{
 func (m *model) renderConvo(full bool) {
 	full = full || len(m.messages) == 0
 	if len(m.convo) == 0 {
+		m.messages = nil
 		return
 	}
 	rfn := defaultFormatterSwitch
 	if full {
-		m.messages = renderConvoSlice(m.convo, rfn)
+		m.messages = RenderConvoSlice(m.convo, rfn)
 	} else {
 		l := len(m.messages)
 		// Guard against an empty rendered buffer (e.g. right after "/clear"),
@@ -514,10 +515,10 @@ func (m *model) renderConvo(full bool) {
 
 		add := len(m.convo) > l // convo always is bigger or equal to messages
 		if !add {
-			a := renderConvoSlice(m.convo[l:], rfn)
+			a := RenderConvoSlice(m.convo[l:], rfn)
 			copy(m.messages[l:], a[:])
 		} else {
-			a := renderConvoSlice(m.convo[l:], rfn)
+			a := RenderConvoSlice(m.convo[l:], rfn)
 			m.messages = append(m.messages[l:], a...)
 		}
 	}
@@ -546,7 +547,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case os.Signal:
 		slog.Info("signal received:", "sig", msg)
-		global.cancelGen()
+		global.cancelGen(fmt.Errorf("received signal: %s", msg.String()))
 		return m, nil
 	case mllm.ChatResponse: // for debug page
 		m.mostRecentResponse = msg
@@ -623,10 +624,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.page = 3
 			m.syncpage()
 		case "ctrl+c", "esc":
-			cancelchan <- syscall.SIGINT
+			global.cancelGen(fmt.Errorf("user pressed ctrl+c to cancel"))
 			return m.WithTextMessage("Cancelled (press a few more times to quit)"), nil
 		case "ctrl+q":
-			global.cancelGen()
+			global.cancelGen(fmt.Errorf("user pressed ctrl+q to quit the interface"))
 			// fmt.Println(m.textarea.Value()) // if [tea.View.AltScreen] is on
 			return m, tea.Quit
 		case "shift+enter":
@@ -735,6 +736,7 @@ func isCommandWord(val string) bool {
 	return false
 }
 
+// gotoPage1 full re-render
 func (m *model) gotoPage1() {
 	m.renderConvo(true)
 	if m.Stickybottom {
@@ -742,6 +744,7 @@ func (m *model) gotoPage1() {
 	}
 }
 
+// syncpage full re-render
 func (m *model) syncpage() {
 	switch m.page {
 	case 1:
@@ -790,13 +793,13 @@ func (m *model) gotoPage3() {
 }
 
 func startGen(ctx context.Context, e orchard.Config, actualconvo mllm.ChatMessages, pending *PendingStreamTUI) {
-	global.cancelGen() // one gen at a time
+	global.cancelGen(fmt.Errorf("startGen cancelled previous")) // one gen at a time
 	if len(actualconvo) == 0 || actualconvo[0].Role == "" {
 		slog.Error("cant stream empty convo", "size", len(actualconvo), "messages", actualconvo)
 		global.SendFunc(fmt.Errorf("cant stream empty convo, size=%d", len(actualconvo)))
 		return
 	}
-	ctx, global.cancelGen = context.WithCancel(ctx)
+	ctx, global.cancelGen = context.WithCancelCause(ctx)
 	slog.Info("starting", "size_convo", len(actualconvo), "top", actualconvo.Top().Message, "db", e.DB != nil)
 	e.ThreadReader = func(ctx context.Context, threadID uuid.UUID) (mllm.ChatMessages, error) {
 		return actualconvo, nil

@@ -12,18 +12,16 @@ import (
 	"github.com/aerth/orchard-tui/pkg/tuilite"
 )
 
-func renderConvoSlice(convo mllm.ChatMessages, renderfunc FormatterFunc) []string {
+// RenderConvoSlice returns a string slice the size of convo
+func RenderConvoSlice(convo mllm.ChatMessages, renderfunc FormatterFunc) []string {
 	s := make([]string, len(convo))
 	for i := range convo {
-		// if convo[i].Aux != nil {
-		//		s[i] = fmt.Sprint(convo[i].Aux)
-		//		} else {
 		s[i] = FormatMessage(convo[i])
-		//		}
 	}
 	return s
 }
 
+// mdrend is replaced with resize events and toggle-render shift+tab
 var mdrend = tuilite.NewRenderer(80)
 
 type (
@@ -60,6 +58,9 @@ var styles = struct {
 }
 
 func alreadyTermRendered(v any) bool {
+	if v == nil {
+		return false
+	}
 	switch v.(type) {
 	case error:
 		return true
